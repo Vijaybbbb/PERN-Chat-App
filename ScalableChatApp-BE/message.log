@@ -1,0 +1,6 @@
+(node:17504) [DEP0128] DeprecationWarning: Invalid 'main' field in '/home/vijay/Desktop/App/ScalableChatApp-BE/Common Microservice/package.json' of 'app.js'. Please either fix that or report it to the module author
+(Use `node --trace-deprecation ...` to show where the warning was created)
+(node:17504) [DEP0128] DeprecationWarning: Invalid 'main' field in '/home/vijay/Desktop/App/ScalableChatApp-BE/Common Microservice/package.json' of 'app.js'. Please either fix that or report it to the module author
+MESSAGE SERVICE RUNNING : 4003
+DataBase connected
+DataBase connected
