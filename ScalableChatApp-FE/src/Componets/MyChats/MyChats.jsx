@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import useFetch from '../../Hooks/useFetch'
-import { Box, Button, Stack, Text } from '@chakra-ui/react'
+import { Box, Button, Stack, Text, Avatar, HStack } from '@chakra-ui/react'
 import { AddIcon } from '@chakra-ui/icons'
 import Chatloading from '../Chatloading/Chatloading'
 import { setSelectedChat } from '../../Redux/selectedChatSlice'
 import { useNavigate } from 'react-router-dom'
-import {getSender} from '../../utils/chatLogic'
+import {getSender, getSenderFull} from '../../utils/chatLogic'
 import GroupChat from '../GroupChat/GroupChat'
 import { setChat } from '../../Redux/chatsSlice'
 
@@ -17,6 +17,7 @@ const MyChats = ({fetchAgain,setFetchAgain}) => {
   }
   const {selectedChat}  = useSelector(state=>state.selectedChatDetails)
   const {chats}  = useSelector(state=>state.chatDetails)
+  const { isDarkMode } = useSelector(state => state.darkMode)
   const [loggedUser,setLoggedUser]  = useState(userId)
   const {data,refetchData } = useFetch(`/chat/api/fetchChats`)
 
@@ -35,10 +36,12 @@ useEffect(()=>{
       flexDir={'column'}
       alignItems={'center'}
       p={3}
-      bg={'white'}
+      bg={isDarkMode ? 'var(--bg-primary)' : 'white'}
+      color={isDarkMode ? 'var(--text-primary)' : 'black'}
       w={{ base: '100%', md: '31%' }}
       borderRadius={'lg'}
       borderWidth={'1px'}
+      borderColor={isDarkMode ? 'var(--border-color)' : 'gray.200'}
     >
       <Box
         pb={3}
@@ -67,7 +70,7 @@ useEffect(()=>{
       display={'flex'}
       flexDir={'column'}
       p={3}
-      bg={'#F8F8F8'}
+      bg={isDarkMode ? 'var(--bg-secondary)' : '#F8F8F8'}
       w={'100%'}
       h={'100%'}
       borderRadius={'lg'}
@@ -81,17 +84,32 @@ useEffect(()=>{
             <Box
                  onClick={()=>dispatch(setSelectedChat(chat))}
                  cursor={'pointer'}
-                 bg={selectedChat === chat ? '#38B2AC' : '#E8E8E8' }
-                 color={selectedChat === chat ? 'white' : 'black'}
+                 bg={selectedChat === chat ? '#38B2AC' : (isDarkMode ? 'var(--bg-primary)' : '#E8E8E8') }
+                 color={selectedChat === chat ? 'white' : (isDarkMode ? 'var(--text-primary)' : 'black')}
                  px={3}
                  py={2}
                  borderRadius={'lg'}
                  key={chat.id}
             >
-              <Text>
-                {!chat?.isGroupChat ? getSender(loggedUser,chat?.users) : chat?.chatName} 
-              </Text>
-                  
+              <HStack spacing={3}>
+                {!chat?.isGroupChat ? (
+                  <Avatar 
+                    size="sm" 
+                    name={getSender(loggedUser, chat?.users)} 
+                    src={getSenderFull(loggedUser, chat?.users)?.pic}
+                  />
+                ) : (
+                  <Avatar 
+                    size="sm" 
+                    name={chat?.chatName}
+                    bg="teal.500"
+                    icon={<Text fontSize="xs">👥</Text>}
+                  />
+                )}
+                <Text>
+                  {!chat?.isGroupChat ? getSender(loggedUser,chat?.users) : chat?.chatName} 
+                </Text>
+              </HStack>
             </Box>   
           ))}
         </Stack>

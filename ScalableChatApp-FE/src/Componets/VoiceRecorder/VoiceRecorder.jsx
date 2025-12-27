@@ -9,7 +9,7 @@ const MicIcon = () => (
   </svg>
 );
 
-const VoiceRecorder = ({ onVoiceRecorded, isRecording, setIsRecording }) => {
+const VoiceRecorder = ({ onVoiceRecorded, isRecording, setIsRecording, isDarkMode }) => {
   const [recordingTime, setRecordingTime] = useState(0);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
@@ -118,6 +118,7 @@ const VoiceRecorder = ({ onVoiceRecorded, isRecording, setIsRecording }) => {
       colorScheme="gray"
       onClick={startRecording}
       aria-label="Start voice recording"
+      color={isDarkMode ? 'white' : 'gray.600'}
     />
   );
 };
