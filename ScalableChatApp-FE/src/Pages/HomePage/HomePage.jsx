@@ -2,8 +2,11 @@ import { Box, Container,Text,TabList, Tab, TabPanels, TabPanel, Tabs, Button, HS
 import React from 'react'
 import Login from '../../Componets/Login/Login'
 import Signup from '../../Componets/Signup/Signup'
+import DarkModeToggle from '../../Componets/DarkModeToggle/DarkModeToggle'
+import { useSelector } from 'react-redux'
 
 const HomePage = () => {
+  const { isDarkMode } = useSelector(state => state.darkMode)
   
   const openAdminPanel = () => {
     window.open('http://localhost:4005/admin', '_blank');
@@ -18,15 +21,19 @@ const HomePage = () => {
         justifyContent='center'
         textAlign={'center'}
         p={3} 
-        bg={'white'}
+        bg={isDarkMode ? 'var(--bg-primary)' : 'white'}
+        color={isDarkMode ? 'var(--text-primary)' : 'black'}
         w={'100%'}
         m={'40px 0 15px 0 '}
         borderRadius={'lg'}
         borderWidth={'1px'}
+        borderColor={isDarkMode ? 'var(--border-color)' : 'gray.200'}
         >
         <HStack justify="space-between" w="100%">
-          <Box flex={1}></Box>
-          <Text fontSize={'4xl'} fontStyle={'Work sans'} color={'black'}>Chat Line</Text>
+          <Box flex={1} display="flex" justifyContent="flex-start">
+            <DarkModeToggle />
+          </Box>
+          <Text fontSize={'4xl'} fontStyle={'Work sans'}>Chat Line</Text>
           <Box flex={1} display="flex" justifyContent="flex-end">
             <Button 
               size="sm" 
@@ -40,7 +47,15 @@ const HomePage = () => {
         </HStack>
       </Box>
 
-      <Box bg={'white'} p={4} borderRadius={'lg'} borderWidth={'1px'} w={'100%'}>
+      <Box 
+        bg={isDarkMode ? 'var(--bg-primary)' : 'white'} 
+        color={isDarkMode ? 'var(--text-primary)' : 'black'}
+        p={4} 
+        borderRadius={'lg'} 
+        borderWidth={'1px'} 
+        borderColor={isDarkMode ? 'var(--border-color)' : 'gray.200'}
+        w={'100%'}
+      >
         <Tabs variant='soft-rounded' >
           <TabList>
             <Tab width={'50%'}>Login</Tab>

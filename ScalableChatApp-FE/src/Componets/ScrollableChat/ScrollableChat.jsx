@@ -12,6 +12,14 @@ const ScrollableChat = ({messages}) => {
   if(!userId){
     userId =  localStorage.getItem('id')  
   }
+  const { isDarkMode } = useSelector(state => state.darkMode)
+
+  const getMessageBubbleColor = (senderId) => {
+    if (isDarkMode) {
+      return senderId === userId ? '#4A90E2' : '#48BB78' // Blue for sent, green for received in dark mode
+    }
+    return senderId === userId ? '#BEE3F8' : '#9ad99f' // Original light mode colors
+  }
 
   return (
     <ScrollableFeed>
@@ -62,14 +70,13 @@ const ScrollableChat = ({messages}) => {
                                           )
                                    }
                                    <div style={{
-                                          background: `${m.sender.id === userId ? '#BEE3F8' : '#9ad99f' }`
-                                          //  background: '#BEE3F8' 
-                                   ,
-                                   borderRadius:'20px',
-                                   padding:'5px 15px',
-                                   maxWidth:'75%',
-                                   marginLeft:isSameSenderMargin(messages,m,i,userId),
-                                   marginTop:isSameUser(messages,m,i,userId) ? 3 : 10
+                                          background: getMessageBubbleColor(m.sender.id),
+                                          color: isDarkMode ? 'white' : 'black',
+                                          borderRadius:'20px',
+                                          padding:'5px 15px',
+                                          maxWidth:'75%',
+                                          marginLeft:isSameSenderMargin(messages,m,i,userId),
+                                          marginTop:isSameUser(messages,m,i,userId) ? 3 : 10
 
                                    }}>
                                                  {m.messageType === 'image' && m.attachment ? (
@@ -81,7 +88,7 @@ const ScrollableChat = ({messages}) => {
                                                        borderRadius="md"
                                                        mb={m.content ? 2 : 0}
                                                      />
-                                                     {m.content && <Text>{m.content}</Text>}
+                                                     {m.content && <Text color={isDarkMode ? 'white' : 'black'}>{m.content}</Text>}
                                                    </Box>
                                                  ) : m.messageType === 'voice' && m.attachment ? (
                                                    <Box>
@@ -89,7 +96,7 @@ const ScrollableChat = ({messages}) => {
                                                        audioUrl={m.attachment.fileUrl}
                                                        duration={m.attachment.duration}
                                                      />
-                                                     {m.content && <Text mt={2}>{m.content}</Text>}
+                                                     {m.content && <Text mt={2} color={isDarkMode ? 'white' : 'black'}>{m.content}</Text>}
                                                    </Box>
                                                  ) : m.messageType === 'file' && m.attachment ? (
                                                    <Box>
@@ -98,13 +105,13 @@ const ScrollableChat = ({messages}) => {
                                                        download={m.attachment.fileName}
                                                        display="flex"
                                                        alignItems="center"
-                                                       color="blue.500"
+                                                       color={isDarkMode ? '#87CEEB' : 'blue.500'}
                                                        mb={m.content ? 2 : 0}
                                                      >
                                                        <DownloadIcon mr={2} />
                                                        <Text fontSize="sm">{m.attachment.fileName}</Text>
                                                      </Link>
-                                                     {m.content && <Text>{m.content}</Text>}
+                                                     {m.content && <Text color={isDarkMode ? 'white' : 'black'}>{m.content}</Text>}
                                                    </Box>
                                                  ) : (
                                                    m.content

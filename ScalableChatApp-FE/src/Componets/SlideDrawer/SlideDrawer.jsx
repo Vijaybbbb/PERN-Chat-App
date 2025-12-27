@@ -10,6 +10,7 @@ import {storeUser} from '../../Redux/userSlice'
 import {removeNotification, setNotification} from '../../Redux/notificationSlice'
 import {setSelectedChat} from '../../Redux/selectedChatSlice'
 import {setChat} from '../../Redux/chatsSlice'
+import DarkModeToggle from '../DarkModeToggle/DarkModeToggle'
 
 import {
        Drawer,
@@ -34,6 +35,7 @@ const SlideDrawer = () => {
  const user = useSelector(state => state.userDetails)
  const {chats} = useSelector(state => state.chatDetails) 
  const {selectedChat} = useSelector(state => state.selectedChatDetails)
+ const { isDarkMode } = useSelector(state => state.darkMode)
 
   const [reciver,setReciever]  = useState('')
   const [search,setSearch]  = useState('')
@@ -119,10 +121,12 @@ async function accessChat(userid) {
    display="flex"
    justifyContent="space-between"
    alignItems="center"
-   bg="white"
+   bg={isDarkMode ? 'var(--bg-primary)' : 'white'}
+   color={isDarkMode ? 'var(--text-primary)' : 'black'}
    w="100%"
    p="5px 10px"
    borderWidth="5px"
+   borderColor={isDarkMode ? 'var(--border-color)' : 'gray.200'}
 
        >
               <Tooltip label='Search Users to Chat ' hasArrow placement='bottom-end'>
@@ -138,7 +142,8 @@ async function accessChat(userid) {
                      Chat-Line
               </Text>
 
-              <div>
+              <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
+                     <DarkModeToggle />
                      <Menu>
                                      <MenuButton p={1}>
                                             <BellIcon fontSize={'2xl'} m={1} />
@@ -148,14 +153,14 @@ async function accessChat(userid) {
                                            
  
                                      </MenuButton>
-                            <MenuList pl={2}>
+                            <MenuList pl={2} bg={isDarkMode ? 'var(--bg-secondary)' : 'white'} borderColor={isDarkMode ? 'var(--border-color)' : 'gray.200'}>
                                    {!notification.length ? " No New Messages" :
                                    notification.map(not=>(
                                           <MenuItem key={not.id} onClick={()=>{
                                                  setSelectedChat(not.chat)
                                                  accessChat(getSenderFull(userId,not.chat.users).id)
                                                  dispatch(removeNotification(not.id))
-                                          }}>
+                                          }} bg={isDarkMode ? 'var(--bg-secondary)' : 'white'} color={isDarkMode ? 'var(--text-primary)' : 'black'}>
                                                  {not?.chat?.isGroupChat ? `New Message in ${not?.chat?.chatName}`
                                                   : `New Message From ${getSender(userId,not?.chat?.users)}`}
                                           </MenuItem>
@@ -166,14 +171,14 @@ async function accessChat(userid) {
                             <MenuButton as={Button} rightIcon={<ChevronDownIcon/>}>
                                    <Avatar size={'sm'} cursor={'pointer'} name={userName} src={pic}/>
                             </MenuButton>
-                            <MenuList>
+                            <MenuList bg={isDarkMode ? 'var(--bg-secondary)' : 'white'} borderColor={isDarkMode ? 'var(--border-color)' : 'gray.200'}>
                                             <Profile user={user}>
-                                                   <MenuItem>
+                                                   <MenuItem bg={isDarkMode ? 'var(--bg-secondary)' : 'white'} color={isDarkMode ? 'var(--text-primary)' : 'black'}>
                                                           My Profile
                                                    </MenuItem>
                                             </Profile>
 
-                                   <MenuItem onClick={handleLogout}>
+                                   <MenuItem onClick={handleLogout} bg={isDarkMode ? 'var(--bg-secondary)' : 'white'} color={isDarkMode ? 'var(--text-primary)' : 'black'}>
                                              Log out
                                    </MenuItem>
                             </MenuList>
@@ -187,7 +192,7 @@ async function accessChat(userid) {
         onClose={onClose}
       >
         <DrawerOverlay />
-        <DrawerContent>
+        <DrawerContent bg={isDarkMode ? 'var(--bg-primary)' : 'white'} color={isDarkMode ? 'var(--text-primary)' : 'black'}>
           <DrawerCloseButton />
           <DrawerHeader>Search User</DrawerHeader>
 
@@ -198,6 +203,8 @@ async function accessChat(userid) {
                             mr={2}
                             value={search}
                             onChange={(e)=>{setSearch(e.target.value)}}
+                            bg={isDarkMode ? 'var(--bg-secondary)' : 'white'}
+                            borderColor={isDarkMode ? 'var(--border-color)' : 'gray.200'}
                             />
                             <Button onClick={handleSearch}>Go</Button>
                </Box>

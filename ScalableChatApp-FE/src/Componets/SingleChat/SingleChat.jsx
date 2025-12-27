@@ -33,6 +33,7 @@ const SingleChat = ({fetchAgain,setFetchAgain}) => {
 
   const {selectedChat}  = useSelector(state=>state.selectedChatDetails)
   const {notification}  = useSelector(state=>state.notificationDetails)
+  const { isDarkMode } = useSelector(state => state.darkMode)
   let {userId}  = useSelector(state=>state.userDetails)
  if(!userId){
     userId =  localStorage.getItem('id')  
@@ -275,7 +276,7 @@ const SingleChat = ({fetchAgain,setFetchAgain}) => {
               flexDir={'column'}
               justifyContent={'flex-end'}
               p={3}
-              bg={'#E8E8E8'}
+              bg={isDarkMode ? 'var(--bg-secondary)' : '#E8E8E8'}
               w={'100%'}
               h={'100%'}
               borderRadius={'lg'}
@@ -300,17 +301,20 @@ const SingleChat = ({fetchAgain,setFetchAgain}) => {
 
                     <FormControl onKeyDown={sendMessage} isRequired mt={3}>
                         {isTyping?<div>
-                          <Text style={{color:'grey',marginBottom:"5px"}}>Typing...</Text>   
+                          <Text style={{color: isDarkMode ? 'var(--text-secondary)' : 'grey', marginBottom:"5px"}}>Typing...</Text>   
                         </div>:<></>}
 
                         <InputGroup position="relative">
                           <Input
                          variant={'filled'}
-                         bg={'#E0E0E0'}
+                         bg={isDarkMode ? 'var(--bg-primary)' : '#E0E0E0'}
+                         color={isDarkMode ? 'var(--text-primary)' : 'black'}
+                         borderColor={isDarkMode ? 'var(--border-color)' : 'gray.200'}
                          placeholder={isRecording ? 'Recording...' : 'Enter a message...'} 
                          onChange={typingHandler}
                          value={newMessage}
                          disabled={isRecording}
+                         _placeholder={{ color: isDarkMode ? 'var(--text-secondary)' : 'gray.500' }}
                         />
                         <InputRightElement width="auto" pr={2}>
                           {!isRecording && (
@@ -322,12 +326,14 @@ const SingleChat = ({fetchAgain,setFetchAgain}) => {
                               onClick={() => fileInputRef.current?.click()}
                               aria-label="Attach file"
                               mr={1}
+                              color={isDarkMode ? 'white' : 'gray.600'}
                             />
                           )}
                           <VoiceRecorder 
                             onVoiceRecorded={handleVoiceRecorded}
                             isRecording={isRecording}
                             setIsRecording={setIsRecording}
+                            isDarkMode={isDarkMode}
                           />
                         </InputRightElement>
                         </InputGroup>
