@@ -15,7 +15,7 @@ const sendMessage = async (req, res, next) => {
     try {
         // Create message
         const messageResult = await db.query(queries.createMessage, [
-            req.user,
+            req.userId,
             content || '',
             chatId,
             attachment ? JSON.stringify(attachment) : null,

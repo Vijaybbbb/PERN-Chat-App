@@ -4,12 +4,16 @@ const socketIO = require('socket.io');
 const dotenv = require('dotenv');
 const path = require('path');
 const { connectRabbitMQ, consumeMessages, publishMessage } = require('../Common Microservice/rabbitmqClient');
+const redisClient = require('../Common Microservice/redisClient');
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const app = express();
 const server = http.createServer(app);
 const PORT = process.env.SOCKET_PORT || 4004;
+
+// Track online users
+const onlineUsers = new Map();
 
 const io = socketIO(server, {
     pingTimeout: 60000,
@@ -43,8 +47,16 @@ const io = socketIO(server, {
 io.on('connection', (socket) => {
     console.log('Connected to socket.io');
 
-    socket.on('setup', (userData) => {
+    socket.on('setup', async (userData) => {
         socket.join(userData);
+        socket.userId = userData;
+        
+        // Mark user as online
+        onlineUsers.set(userData, socket.id);
+        await redisClient.setEx(`online:${userData}`, 300, 'true'); // 5 min expiry
+        
+        // Broadcast user online status
+        socket.broadcast.emit('user online', userData);
         socket.emit('connected');
     });
 
@@ -64,9 +76,29 @@ io.on('connection', (socket) => {
         });
     });
 
-    socket.on('disconnect', () => {
-        console.log('User disconnected');
+    socket.on('get online users', async () => {
+        const onlineUserIds = Array.from(onlineUsers.keys());
+        socket.emit('online users', onlineUserIds);
     });
+
+    socket.on('disconnect', async () => {
+        console.log('User disconnected');
+        if (socket.userId) {
+            onlineUsers.delete(socket.userId);
+            await redisClient.del(`online:${socket.userId}`);
+            socket.broadcast.emit('user offline', socket.userId);
+        }
+    });
+});
+
+// API endpoint to check online status
+app.get('/online/:userId', async (req, res) => {
+    try {
+        const isOnline = await redisClient.get(`online:${req.params.userId}`);
+        res.json({ online: !!isOnline });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to check online status' });
+    }
 });
 
 server.listen(PORT, () => {

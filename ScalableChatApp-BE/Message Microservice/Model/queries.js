@@ -8,7 +8,12 @@ const messageQueries = {
     
     // Get message with sender and chat info
     getMessageWithDetails: `
-        SELECT m.*,
+        SELECT m.id, m."senderId", m.content, m."chatId", 
+               CASE 
+                   WHEN m.attachment IS NOT NULL THEN m.attachment::json
+                   ELSE NULL
+               END as attachment,
+               m."messageType", m."createdAt", m."updatedAt",
                json_build_object(
                    'id', sender.id,
                    'name', sender.name,
@@ -34,7 +39,12 @@ const messageQueries = {
     
     // Get all messages for a chat
     getChatMessages: `
-        SELECT m.*,
+        SELECT m.id, m."senderId", m.content, m."chatId", 
+               CASE 
+                   WHEN m.attachment IS NOT NULL THEN m.attachment::json
+                   ELSE NULL
+               END as attachment,
+               m."messageType", m."createdAt", m."updatedAt",
                json_build_object(
                    'id', sender.id,
                    'name', sender.name,

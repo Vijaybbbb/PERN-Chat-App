@@ -1,12 +1,23 @@
 import { Box, Container,Text,TabList, Tab, TabPanels, TabPanel, Tabs, Button, HStack } from '@chakra-ui/react'
-import React from 'react'
+import React, { useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useSelector } from 'react-redux'
 import Login from '../../Componets/Login/Login'
 import Signup from '../../Componets/Signup/Signup'
 import DarkModeToggle from '../../Componets/DarkModeToggle/DarkModeToggle'
-import { useSelector } from 'react-redux'
+import { isAuthenticated } from '../../utils/auth'
 
 const HomePage = () => {
   const { isDarkMode } = useSelector(state => state.darkMode)
+  const { userId } = useSelector(state => state.userDetails)
+  const navigate = useNavigate()
+  
+  useEffect(() => {
+    // Check if user is already authenticated
+    if (userId || isAuthenticated()) {
+      navigate('/chats')
+    }
+  }, [userId, navigate])
   
   const openAdminPanel = () => {
     window.open('http://localhost:4005/admin', '_blank');

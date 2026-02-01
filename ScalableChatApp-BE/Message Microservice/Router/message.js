@@ -7,7 +7,7 @@ const router = express.Router()
 
 
 router.post('/', verifyTocken,sendMessage)
-router.post('/upload', verifyTocken, upload.single('file'), uploadFile)
+router.post('/upload/:chatId', verifyTocken, upload.single('file'), uploadFile)
 router.post('/upload-voice', verifyTocken, voiceUpload.single('voice'), uploadVoice)
 router.get('/:chatId', verifyTocken,allMessages)
 

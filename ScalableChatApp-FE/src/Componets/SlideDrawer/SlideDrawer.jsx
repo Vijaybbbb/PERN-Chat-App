@@ -11,6 +11,7 @@ import {removeNotification, setNotification} from '../../Redux/notificationSlice
 import {setSelectedChat} from '../../Redux/selectedChatSlice'
 import {setChat} from '../../Redux/chatsSlice'
 import DarkModeToggle from '../DarkModeToggle/DarkModeToggle'
+import { clearStoredUser } from '../../utils/auth'
 
 import {
        Drawer,
@@ -52,17 +53,24 @@ const SlideDrawer = () => {
 
   function handleLogout(e){
        e.preventDefault()
-       chatAxios.post(`/clearCookie`,{withCredentials:true}).then(()=>{
-              localStorage.clear()
+       userAxios.post(`/user/logout`).then(()=>{
+              clearStoredUser()
               dispatch(storeUser({
                      userId:null,
                      userName:null,
-                     pic:null
+                     pic:null,
+                     email:null,
+                     accessToken:null
               }))
               dispatch(setSelectedChat(null)); 
               dispatch(setNotification([]));
               navigate('/')
-             }).catch(err=>console.log(err))
+             }).catch(err=>{
+                console.log(err)
+                // Force logout even if API call fails
+                clearStoredUser()
+                navigate('/')
+             })
 }
 
 

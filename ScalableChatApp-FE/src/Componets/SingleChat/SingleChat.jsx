@@ -77,6 +77,8 @@ const SingleChat = ({fetchAgain,setFetchAgain}) => {
         else{
           setMessages([...messages,newMessageRecived])
         }
+        // Always trigger chat list refresh for latest message update
+        setFetchAgain(prev => !prev)
     })
   })
 
@@ -110,6 +112,7 @@ const SingleChat = ({fetchAgain,setFetchAgain}) => {
              const {data}  = await messageAxios.post(`/message`, messageData, {withCredentials:true})
              socket.emit('new message',data)
              setMessages([...messages,data])
+             setFetchAgain(prev => !prev) // Refresh chat list
 
           } catch (error) {
                  console.log(error);
@@ -158,7 +161,7 @@ const SingleChat = ({fetchAgain,setFetchAgain}) => {
     formData.append('chatId', selectedChat.id)
 
     try {
-      const { data } = await messageAxios.post('/message/upload', formData, {
+      const { data } = await messageAxios.post(`/message/upload/${selectedChat.id}`, formData, {
         withCredentials: true,
         headers: { 'Content-Type': 'multipart/form-data' }
       })

@@ -6,6 +6,15 @@ const jwt = require('jsonwebtoken');
 const redisClient = require('../../Common Microservice/redisClient');
 const CACHE_TTL = process.env.CACHE_TTL || 3600;
 
+// Token generation functions
+const generateAccessToken = (payload) => {
+    return jwt.sign(payload, process.env.JWT_SECRET_KEY, { expiresIn: '15m' });
+};
+
+const generateRefreshToken = (payload) => {
+    return jwt.sign(payload, process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET_KEY, { expiresIn: '7d' });
+};
+
 const register = async (req, res, next) => {
     try {
         const existingUserResult = await db.query(queries.findUserByEmail, [req.body.userData.email]);
@@ -26,22 +35,26 @@ const register = async (req, res, next) => {
         
         const newUser = newUserResult.rows[0];
 
-        const token = jwt.sign({ 
-            id: newUser.id, 
-            isAdmin: newUser.isAdmin 
-        }, process.env.JWT_SECRET_KEY);
+        const tokenPayload = { id: newUser.id, isAdmin: newUser.isAdmin };
+        const accessToken = generateAccessToken(tokenPayload);
+        const refreshToken = generateRefreshToken(tokenPayload);
+        
+        // Store refresh token in Redis
+        await redisClient.setEx(`refresh_token:${newUser.id}`, 7 * 24 * 60 * 60, refreshToken);
         
         const { password: userPassword, isAdmin, ...otherDetails } = newUser;
         
-        res.cookie('access_tocken', token, {
+        res.cookie('access_token', accessToken, {
             httpOnly: true,
             path: '/',
             secure: process.env.NODE_ENV === 'production',
-        }).cookie('user_id', newUser.id, {
+            maxAge: 15 * 60 * 1000 // 15 minutes
+        }).cookie('refresh_token', refreshToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             path: '/',
-        }).status(200).json({ ...otherDetails });
+            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        }).status(200).json({ ...otherDetails, accessToken });
         
     } catch (error) {
         console.log(error);
@@ -63,20 +76,30 @@ const login = async (req, res, next) => {
         const checkPassword = await bcrypt.compare(password, existingUser.password);
         
         if (checkPassword) {
-            const token = jwt.sign({
+            const tokenPayload = {
                 id: existingUser.id,
                 isAdmin: existingUser.isAdmin
-            }, process.env.JWT_SECRET_KEY);
+            };
+            
+            const accessToken = generateAccessToken(tokenPayload);
+            const refreshToken = generateRefreshToken(tokenPayload);
+            
+            // Store refresh token in Redis
+            await redisClient.setEx(`refresh_token:${existingUser.id}`, 7 * 24 * 60 * 60, refreshToken);
             
             const { password, isAdmin, ...otherDetails } = existingUser;
             
-            res.cookie('access_tocken', token, {
-                httpOnly: true,
-                path: '/'
-            }).cookie('user_id', existingUser.id, {
+            res.cookie('access_token', accessToken, {
                 httpOnly: true,
                 path: '/',
-            }).status(200).json({ ...otherDetails });
+                secure: process.env.NODE_ENV === 'production',
+                maxAge: 15 * 60 * 1000 // 15 minutes
+            }).cookie('refresh_token', refreshToken, {
+                httpOnly: true,
+                path: '/',
+                secure: process.env.NODE_ENV === 'production',
+                maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+            }).status(200).json({ ...otherDetails, accessToken });
         } else {
             return next(createError(401, 'Invalid Credentials'));
         }
@@ -89,7 +112,7 @@ const login = async (req, res, next) => {
 const allUsers = async (req, res, next) => {
     try {
         const searchQuery = req.query.search || '';
-        const cacheKey = `users:search:${searchQuery}:${req.user}`;
+        const cacheKey = `users:search:${searchQuery}:${req.userId}`;
         
         // Check cache
         const cachedUsers = await redisClient.get(cacheKey);
@@ -99,9 +122,9 @@ const allUsers = async (req, res, next) => {
         
         let usersResult;
         if (searchQuery) {
-            usersResult = await db.query(queries.searchUsers, [req.user, `%${searchQuery}%`]);
+            usersResult = await db.query(queries.searchUsers, [req.userId, `%${searchQuery}%`]);
         } else {
-            usersResult = await db.query(queries.getAllUsersExceptCurrent, [req.user]);
+            usersResult = await db.query(queries.getAllUsersExceptCurrent, [req.userId]);
         }
         
         const users = usersResult.rows;
@@ -116,8 +139,65 @@ const allUsers = async (req, res, next) => {
     }
 };
 
+const refreshToken = async (req, res, next) => {
+    try {
+        const { refresh_token } = req.cookies;
+        
+        if (!refresh_token) {
+            return next(createError(401, 'Refresh token not provided'));
+        }
+        
+        // Verify refresh token
+        const decoded = jwt.verify(refresh_token, process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET_KEY);
+        
+        // Check if refresh token exists in Redis
+        const storedToken = await redisClient.get(`refresh_token:${decoded.id}`);
+        if (!storedToken || storedToken !== refresh_token) {
+            return next(createError(401, 'Invalid refresh token'));
+        }
+        
+        // Generate new access token
+        const tokenPayload = { id: decoded.id, isAdmin: decoded.isAdmin };
+        const newAccessToken = generateAccessToken(tokenPayload);
+        
+        res.cookie('access_token', newAccessToken, {
+            httpOnly: true,
+            path: '/',
+            secure: process.env.NODE_ENV === 'production',
+            maxAge: 15 * 60 * 1000 // 15 minutes
+        }).status(200).json({ accessToken: newAccessToken });
+        
+    } catch (error) {
+        console.log(error);
+        return next(createError(401, 'Invalid refresh token'));
+    }
+};
+
+const logout = async (req, res, next) => {
+    try {
+        const { refresh_token } = req.cookies;
+        const userId = req.user;
+        
+        if (refresh_token && userId) {
+            // Remove refresh token from Redis
+            await redisClient.del(`refresh_token:${userId}`);
+        }
+        
+        res.clearCookie('access_token')
+           .clearCookie('refresh_token')
+           .status(200)
+           .json({ message: 'Logged out successfully' });
+           
+    } catch (error) {
+        console.log(error);
+        return next(createError(500, 'Logout failed'));
+    }
+};
+
 module.exports = {
     register,
     login,
-    allUsers
+    allUsers,
+    refreshToken,
+    logout
 };
