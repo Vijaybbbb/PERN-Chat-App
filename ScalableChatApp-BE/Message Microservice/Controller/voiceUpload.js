@@ -32,7 +32,7 @@ const uploadVoice = async (req, res) => {
     // Upload to Cloudinary using same URL as frontend
     const formData = new FormData();
     formData.append('file', req.file.buffer, {
-      filename: `voice_${req.user}_${Date.now()}.webm`,
+      filename: `voice_${req.userId}_${Date.now()}.webm`,
       contentType: req.file.mimetype
     });
     formData.append('upload_preset', 'Chat-App');
@@ -57,7 +57,7 @@ const uploadVoice = async (req, res) => {
       fileType: 'audio/webm',
       fileSize: req.file.size,
       duration: result.duration || 0,
-      uploadedBy: req.user,
+      uploadedBy: req.userId,
       chatId: chatId
     };
     

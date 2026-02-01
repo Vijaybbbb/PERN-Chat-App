@@ -24,7 +24,7 @@ const Profile = ({user,children}) => {
               d='flex'
               justifyContent={'center'}
           
-          >{user.userName}</ModalHeader>
+          >{user.userName || "Unknown"}</ModalHeader>
           <ModalCloseButton />
           <ModalBody
               display={'flex'}

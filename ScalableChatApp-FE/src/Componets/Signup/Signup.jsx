@@ -3,15 +3,20 @@ import React, { useEffect, useState } from 'react'
 import {userAxios} from '../../utils/axiosRequest'
 import ToastMessage from '../Toast/ToastMessage'
 import { useToast } from '@chakra-ui/react'
+import { useNavigate } from 'react-router-dom'
+import { useDispatch } from 'react-redux'
+import { storeUser } from '../../Redux/userSlice'
+import { setStoredUser } from '../../utils/auth'
 
 const Signup = () => {
 
+       const dispatch = useDispatch()
+       const navigate = useNavigate()
        const [userData,setUserData] = useState({
              name:'',
              email:'', 
              password:'', 
              confirmPassword:'', 
-            
 
        })
        const [show,setShow]  = useState(false)
@@ -19,6 +24,7 @@ const Signup = () => {
        const toast = useToast()
        const [loading,setLoading]  = useState(false)
        const [images,setImages]  = useState(undefined)
+       
        function getData (e){
               e.preventDefault()
               setUserData({
@@ -75,26 +81,27 @@ const Signup = () => {
                      return
               }
             
+              setLoading(true);
               try {
-                    
-                  userAxios.post(`/user/register`, {images,userData},
-                     {
-                            withCredentials: true,
-                            headers: {
-                                   'Content-Type': 'application/json'
-                            }
-                     }).then((res) => {
-                            toastMessage('Registration Success','success')
-                     }).catch((error) => {
-                            console.log(error);
-                           toastMessage(error.response.data.message,'error')
-
-                     })
+                  const response = await userAxios.post(`/user/register`, {images,userData});
+                  
+                  // Store user data with access token
+                  const userWithToken = {
+                    ...response.data,
+                    accessToken: response.data.accessToken
+                  };
+                  
+                  dispatch(storeUser(userWithToken));
+                  setStoredUser(userWithToken);
+                  
+                  toastMessage('Registration Success','success')
+                  navigate('/chats')
               } catch (error) {
-                     
+                     console.log(error);
+                     toastMessage(error.response?.data?.message || 'Registration failed','error')
+              } finally {
+                     setLoading(false);
               }
-
-       
        }
 
 
@@ -103,6 +110,7 @@ const Signup = () => {
               setImages(e.target.files[0])
               if (!e.target.files[0]) {
                      toastMessage('Select an image','error')
+                     setLoading(false)
                      return
               }
               try {
@@ -117,14 +125,16 @@ const Signup = () => {
                      .then((data)=>{
                             setImages(data.url.toString())
                             setLoading(false)
-                     }).catch(err=>console.log(err))
+                     }).catch(err=>{
+                            console.log(err)
+                            toastMessage('Image upload failed','error')
+                            setLoading(false)
+                     })
               } catch (error) {
                      toastMessage('Select an image','error')
+                     setLoading(false)
                      return
-                    
               }
-
-
        }
 
 
@@ -212,6 +222,7 @@ const Signup = () => {
      mt={15}
      onClick={handleSubmit}
      isLoading={loading}
+     loadingText="Signing up..."
      >
        Signup
      </Button>

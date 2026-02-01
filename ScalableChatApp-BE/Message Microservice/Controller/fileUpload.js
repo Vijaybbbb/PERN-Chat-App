@@ -1,15 +1,15 @@
-const AWS = require('aws-sdk');
+const { S3Client } = require('@aws-sdk/client-s3');
 const multer = require('multer');
 const multerS3 = require('multer-s3');
 
-// Configure AWS
-AWS.config.update({
-  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  region: process.env.AWS_REGION
+// Configure AWS S3 Client
+const s3 = new S3Client({
+  region: process.env.AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  },
 });
-
-const s3 = new AWS.S3();
 
 // Configure multer for S3 upload
 const upload = multer({
@@ -20,7 +20,8 @@ const upload = multer({
       cb(null, { fieldName: file.fieldname });
     },
     key: function (req, file, cb) {
-      const chatId = req.body.chatId || 'unknown';
+      // Get chatId from body, params, or query
+      const chatId = req.body.chatId || req.params.chatId || req.query.chatId || 'unknown';
       const fileName = `chat-files/${chatId}/${Date.now()}-${file.originalname}`;
       cb(null, fileName);
     }
@@ -44,7 +45,7 @@ const upload = multer({
 
 const uploadFile = async (req, res) => {
   try {
-    const { chatId } = req.body;
+    const chatId = req.params.chatId || req.body.chatId;
     if (!chatId) {
       return res.status(400).json({ success: false, message: 'Chat ID is required' });
     }
@@ -54,7 +55,7 @@ const uploadFile = async (req, res) => {
       fileUrl: req.file.location,
       fileType: req.file.mimetype,
       fileSize: req.file.size,
-      uploadedBy: req.user,
+      uploadedBy: req.userId,
       chatId: chatId
     };
     

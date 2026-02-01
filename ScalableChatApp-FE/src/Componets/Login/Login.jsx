@@ -5,6 +5,7 @@ import { useToast } from '@chakra-ui/react'
 import {useNavigate} from 'react-router-dom'
 import { useDispatch } from 'react-redux';
 import {storeUser} from '../../Redux/userSlice'
+import { setStoredUser } from '../../utils/auth';
 
 const Login = () => {
 
@@ -17,6 +18,7 @@ const Login = () => {
     password: '',
   });
   const [show, setShow] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (event) => {
     setUserData({
@@ -42,26 +44,29 @@ const Login = () => {
   const handleSubmit = async (event) => {
     event.preventDefault()
     if (!userData.email || !userData.password) {  
-      console.error('All fields are required.');
+      toastMessage('All fields are required.', 'error');
       return;
     }
 
+    setLoading(true);
     try {
-      const response = await userAxios.post(`/user/login`, userData, {
-        withCredentials: true,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      //console.log(response);
-      toastMessage('Login Successfull','success') 
-      dispatch(storeUser(response.data))
-      localStorage.setItem('id',response.data.id)                  
+      const response = await userAxios.post(`/user/login`, userData);
+      
+      // Store user data with access token
+      const userWithToken = {
+        ...response.data,
+        accessToken: response.data.accessToken
+      };
+      
+      dispatch(storeUser(userWithToken));
+      setStoredUser(userWithToken);
+      
+      toastMessage('Login Successful','success') 
       navigate('/chats')
     } catch (error) {
-      //console.log(error);
-      toastMessage(error.response.data.message,'error')
-                      
+      toastMessage(error.response?.data?.message || 'Login failed','error')
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -95,7 +100,14 @@ const Login = () => {
         </InputGroup>
       </FormControl>
 
-      <Button colorScheme="blue" width="100%" mt={15} onClick={handleSubmit}>
+      <Button 
+        colorScheme="blue" 
+        width="100%" 
+        mt={15} 
+        onClick={handleSubmit}
+        isLoading={loading}
+        loadingText="Logging in..."
+      >
         Login
       </Button>
       <Button

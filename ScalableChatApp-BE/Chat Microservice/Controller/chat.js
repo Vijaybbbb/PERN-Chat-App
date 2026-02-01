@@ -12,7 +12,7 @@ const accessChat = async (req, res, next) => {
         }
         
         // Find existing chat between two users
-        const existingChatResult = await db.query(queries.findExistingChat, [[req.user, userId]]);
+        const existingChatResult = await db.query(queries.findExistingChat, [[req.userId, userId]]);
         
         if (existingChatResult.rows.length > 0) {
             res.send(existingChatResult.rows[0]);
@@ -22,14 +22,14 @@ const accessChat = async (req, res, next) => {
             const newChat = newChatResult.rows[0];
             
             // Add users to chat
-            await db.query(queries.addUsersToChat, [newChat.id, req.user]);
+            await db.query(queries.addUsersToChat, [newChat.id, req.userId]);
             await db.query(queries.addUsersToChat, [newChat.id, userId]);
             
             // Get full chat with users
             const fullChatResult = await db.query(queries.getChatWithUsers, [newChat.id]);
             
             // Invalidate user chats cache
-            await redisClient.del(`chats:${req.user}`);
+            await redisClient.del(`chats:${req.userId}`);
             await redisClient.del(`chats:${userId}`);
             
             res.status(200).json(fullChatResult.rows[0]);
@@ -41,7 +41,7 @@ const accessChat = async (req, res, next) => {
 };
 
 const fetchChat = async (req, res, next) => {
-    const cacheKey = `chats:${req.user}`;
+    const cacheKey = `chats:${req.userId}`;
     
     try {
         // Check cache
@@ -51,8 +51,8 @@ const fetchChat = async (req, res, next) => {
         }
         
         // Fetch from DB
-        const chatsResult = await db.query(queries.fetchUserChats, [req.user]);
-       // console.log(chatsResult.rows)
+        const chatsResult = await db.query(queries.fetchUserChats, [req.userId]);
+        console.log(chatsResult.rows)
         
         // Get users for each chat
         const chatsWithUsers = await Promise.all(chatsResult.rows.map(async (chat) => {
@@ -94,14 +94,14 @@ const createGroup = async (req, res, next) => {
         if (users.length < 2) {
             return res.status(400).json('More than 2 users required');
         }
-        users.push(req.user);
+        users.push(req.userId);
         
         // Create group chat
         const groupChatResult = await db.query(queries.createChat, [req.body.name, true]);
         const groupChat = groupChatResult.rows[0];
         
         // Update with group admin
-        await db.query('UPDATE chats SET "groupAdminId" = $1 WHERE id = $2', [req.user, groupChat.id]);
+        await db.query('UPDATE chats SET "groupAdminId" = $1 WHERE id = $2', [req.userId, groupChat.id]);
         
         // Add users to group
         for (const userId of users) {
