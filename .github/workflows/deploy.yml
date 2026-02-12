@@ -1,0 +1,76 @@
+name: Deploy to AWS EC2
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+    
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+    
+    - name: Build and push Docker images
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        ECR_REPOSITORY_PREFIX: chatapp
+      run: |
+        # Build and push User Service
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY_PREFIX-user:latest ./ScalableChatApp-BE/User\ Microservice/
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY_PREFIX-user:latest
+        
+        # Build and push Chat Service
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY_PREFIX-chat:latest ./ScalableChatApp-BE/Chat\ Microservice/
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY_PREFIX-chat:latest
+        
+        # Build and push Database Service
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY_PREFIX-database:latest ./ScalableChatApp-BE/Database\ Microservice/
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY_PREFIX-database:latest
+        
+        # Build and push Message Service
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY_PREFIX-message:latest ./ScalableChatApp-BE/Message\ Microservice/
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY_PREFIX-message:latest
+        
+        # Build and push Socket Service
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY_PREFIX-socket:latest ./ScalableChatApp-BE/Socket\ Microservice/
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY_PREFIX-socket:latest
+        
+        # Build and push Frontend
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY_PREFIX-frontend:latest ./ScalableChatApp-FE/
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY_PREFIX-frontend:latest
+    
+    - name: Deploy to EC2
+      uses: appleboy/ssh-action@v0.1.5
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USER }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
+          # Login to ECR
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
+          
+          # Stop existing containers
+          docker-compose down || true
+          
+          # Pull latest images
+          docker pull ${{ steps.login-ecr.outputs.registry }}/chatapp-user:latest
+          docker pull ${{ steps.login-ecr.outputs.registry }}/chatapp-chat:latest
+          docker pull ${{ steps.login-ecr.outputs.registry }}/chatapp-database:latest
+          docker pull ${{ steps.login-ecr.outputs.registry }}/chatapp-message:latest
+          docker pull ${{ steps.login-ecr.outputs.registry }}/chatapp-socket:latest
+          docker pull ${{ steps.login-ecr.outputs.registry }}/chatapp-frontend:latest
+          
+          # Start services
+          docker-compose up -d
