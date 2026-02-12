@@ -1,6 +1,6 @@
 import React, { Profiler, useEffect, useState } from 'react'
 import './SlideDrawer.css'
-import { Avatar, Badge, Box, Button, ChakraBaseProvider, Input, Menu, MenuButton, MenuItem, MenuList, Spinner, Text, Tooltip, useDisclosure, useToast } from '@chakra-ui/react'
+import { Avatar, Badge, Box, Button, ChakraBaseProvider, Input, Menu, MenuButton, MenuItem, MenuList, Spinner, Text, Tooltip, useDisclosure, useToast, AlertDialog, AlertDialogBody, AlertDialogFooter, AlertDialogHeader, AlertDialogContent, AlertDialogOverlay } from '@chakra-ui/react'
 import { BellIcon, ChevronDownIcon } from '@chakra-ui/icons'
 import { useDispatch, useSelector } from 'react-redux'
 import Profile from '../Profile/Profile'
@@ -48,7 +48,9 @@ const SlideDrawer = () => {
   const navigate  = useNavigate()
   const dispatch = useDispatch()
   const { isOpen, onOpen, onClose } = useDisclosure()
+  const { isOpen: isAlertOpen, onOpen: onAlertOpen, onClose: onAlertClose } = useDisclosure()
   const toast = useToast()
+  const cancelRef = React.useRef()
 
 
   function handleLogout(e){
@@ -230,11 +232,45 @@ async function accessChat(userid) {
                 ))
                )}
                {loadingChat && <Spinner ml='auto' display={'flex'}/>}
+               
+               <Box mt={4} pt={4} borderTop="1px" borderColor={isDarkMode ? 'var(--border-color)' : 'gray.200'}>
+                 <Button 
+                   colorScheme="blue" 
+                   width="100%" 
+                   onClick={onAlertOpen}
+                 >
+                   Connect Developer
+                 </Button>
+               </Box>
           </DrawerBody>
 
        
         </DrawerContent>
       </Drawer>
+
+      <AlertDialog
+        isOpen={isAlertOpen}
+        leastDestructiveRef={cancelRef}
+        onClose={onAlertClose}
+      >
+        <AlertDialogOverlay>
+          <AlertDialogContent bg={isDarkMode ? 'var(--bg-primary)' : 'white'} color={isDarkMode ? 'var(--text-primary)' : 'black'}>
+            <AlertDialogHeader fontSize="lg" fontWeight="bold">
+              Connect with Developer
+            </AlertDialogHeader>
+
+            <AlertDialogBody>
+              Kindly send your suggestions to this email: vijay@gmail.com
+            </AlertDialogBody>
+
+            <AlertDialogFooter>
+              <Button ref={cancelRef} onClick={onAlertClose}>
+                Close
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialogOverlay>
+      </AlertDialog>
     </div>
   )
 }
