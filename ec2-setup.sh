@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Update system
-sudo yum update -y
+sudo yum update -y 
 
 # Install Docker
 sudo yum install -y docker
