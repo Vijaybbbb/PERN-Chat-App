@@ -61,6 +61,9 @@ jobs:
           # Login to ECR
           aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
           
+          # Navigate to app directory
+          cd /home/ubuntu/chatapp
+          
           # Stop existing containers
           docker-compose down || true
           
