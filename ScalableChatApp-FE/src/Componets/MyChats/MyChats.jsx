@@ -11,7 +11,7 @@ import GroupChat from '../GroupChat/GroupChat'
 import { setChat } from '../../Redux/chatsSlice'
 import io from 'socket.io-client'
 
-const ENDPOINT = 'http://localhost:4004'
+const ENDPOINT = import.meta.env.VITE_SOCKET_SERVICE_URL || 'http://localhost:4004'
 let socket;
 
 const MyChats = ({fetchAgain,setFetchAgain}) => {
