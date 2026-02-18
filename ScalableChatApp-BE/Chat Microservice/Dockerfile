@@ -1,7 +1,8 @@
 FROM node:18-alpine
 WORKDIR /app
-COPY package*.json ./
+COPY ["Chat Microservice/package*.json", "./"]
 RUN npm install --production
-COPY . .
+COPY ["Chat Microservice/", "./"]
+COPY ["Common Microservice/", "../Common Microservice/"]
 EXPOSE 3002
 CMD ["node", "app.js"]

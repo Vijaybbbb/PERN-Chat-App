@@ -28,19 +28,19 @@ jobs:
         ECR_REPOSITORY_PREFIX: chatapp
       run: |
         # Build and push User Service
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY_PREFIX-user:latest ./ScalableChatApp-BE/User\ Microservice/
+        docker build -f "ScalableChatApp-BE/User Microservice/Dockerfile" -t $ECR_REGISTRY/$ECR_REPOSITORY_PREFIX-user:latest ./ScalableChatApp-BE/
         docker push $ECR_REGISTRY/$ECR_REPOSITORY_PREFIX-user:latest
         
         # Build and push Chat Service
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY_PREFIX-chat:latest ./ScalableChatApp-BE/Chat\ Microservice/
+        docker build -f "ScalableChatApp-BE/Chat Microservice/Dockerfile" -t $ECR_REGISTRY/$ECR_REPOSITORY_PREFIX-chat:latest ./ScalableChatApp-BE/
         docker push $ECR_REGISTRY/$ECR_REPOSITORY_PREFIX-chat:latest
         
         # Build and push Database Service
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY_PREFIX-database:latest ./ScalableChatApp-BE/Database\ Microservice/
+        docker build -f "ScalableChatApp-BE/Database Microservice/Dockerfile" -t $ECR_REGISTRY/$ECR_REPOSITORY_PREFIX-database:latest ./ScalableChatApp-BE/
         docker push $ECR_REGISTRY/$ECR_REPOSITORY_PREFIX-database:latest
         
         # Build and push Message Service
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY_PREFIX-message:latest ./ScalableChatApp-BE/Message\ Microservice/
+        docker build -f "ScalableChatApp-BE/Message Microservice/Dockerfile" -t $ECR_REGISTRY/$ECR_REPOSITORY_PREFIX-message:latest ./ScalableChatApp-BE/
         docker push $ECR_REGISTRY/$ECR_REPOSITORY_PREFIX-message:latest
         
         # Build and push Socket Service
