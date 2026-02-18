@@ -1,24 +1,26 @@
 import axios from 'axios'
 import { getAccessToken, updateAccessToken, clearStoredUser } from './auth'
 
-const sampleUrl="http://localhost:"
+const USER_SERVICE_URL = import.meta.env.VITE_USER_SERVICE_URL || 'http://localhost:4002'
+const CHAT_SERVICE_URL = import.meta.env.VITE_CHAT_SERVICE_URL || 'http://localhost:4001'
+const MESSAGE_SERVICE_URL = import.meta.env.VITE_MESSAGE_SERVICE_URL || 'http://localhost:4003'
 
 export const axiosRequest=axios.create({
-       baseURL:sampleUrl,
+       baseURL:'http://localhost:',
 })
 
 export const userAxios = axios.create({
-       baseURL: 'http://localhost:4002',
+       baseURL: USER_SERVICE_URL,
        withCredentials: true,
 })
 
 export const chatAxios = axios.create({
-       baseURL: 'http://localhost:4001',
+       baseURL: CHAT_SERVICE_URL,
        withCredentials: true,
 })
 
 export const messageAxios = axios.create({
-       baseURL: 'http://localhost:4003',
+       baseURL: MESSAGE_SERVICE_URL,
        withCredentials: true,
 })
 
@@ -40,7 +42,7 @@ const processQueue = (error, token = null) => {
 // Token refresh function
 const refreshAccessToken = async () => {
     try {
-        const response = await axios.post('http://localhost:4002/user/refresh-token', {}, {
+        const response = await axios.post(`${USER_SERVICE_URL}/user/refresh-token`, {}, {
             withCredentials: true
         });
         return response.data.accessToken;

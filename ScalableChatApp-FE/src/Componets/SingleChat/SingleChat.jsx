@@ -14,7 +14,7 @@ import ScrollableChat from '../ScrollableChat/ScrollableChat'
 import { io } from 'socket.io-client'
 
 
-const ENDPOINT = 'http://localhost:4004';
+const ENDPOINT = import.meta.env.VITE_SOCKET_SERVICE_URL || 'http://localhost:4004';
 var socket , selectedChatCompare;
 
 
