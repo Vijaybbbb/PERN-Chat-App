@@ -7,6 +7,7 @@ services:
       - "3001:3001"
     environment:
       - NODE_ENV=production
+      - USER_PORT=3001
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - POSTGRES_HOST=postgres
@@ -28,6 +29,7 @@ services:
       - "3002:3002"
     environment:
       - NODE_ENV=production
+      - CHAT_PORT=3002
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - POSTGRES_HOST=postgres
@@ -64,6 +66,7 @@ services:
       - "3004:3004"
     environment:
       - NODE_ENV=production
+      - MESSAGE_PORT=3004
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - POSTGRES_HOST=postgres
@@ -89,6 +92,7 @@ services:
       - "3005:3005"
     environment:
       - NODE_ENV=production
+      - SOCKET_PORT=3005
       - REDIS_HOST=redis
       - REDIS_PORT=6379
     depends_on:
