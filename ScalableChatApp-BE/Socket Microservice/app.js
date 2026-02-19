@@ -18,7 +18,7 @@ const onlineUsers = new Map();
 const io = socketIO(server, {
     pingTimeout: 60000,
     cors: {
-        origin: 'http://localhost:5173',
+        origin: process.env.NODE_ENV === 'production' ? true : 'http://localhost:5173',
         credentials: true
     }
 });
