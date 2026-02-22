@@ -44,7 +44,7 @@ jobs:
         docker push $ECR_REGISTRY/$ECR_REPOSITORY_PREFIX-message:latest
         
         # Build and push Socket Service
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY_PREFIX-socket:latest ./ScalableChatApp-BE/Socket\ Microservice/
+        docker build -f "ScalableChatApp-BE/Socket Microservice/Dockerfile" -t $ECR_REGISTRY/$ECR_REPOSITORY_PREFIX-socket:latest ./ScalableChatApp-BE/
         docker push $ECR_REGISTRY/$ECR_REPOSITORY_PREFIX-socket:latest
         
         # Build and push Frontend
