@@ -3,7 +3,7 @@ const { createError } = require('./error.js');
 const queries = require('./queries.js');
 const redisClient = require('../redisClient.js');
 
-// Lazy load db to avoid initialization issues
+// Lazy load db - will be initialized by each microservice
 const getDb = () => require('./databaseConnection.js');
 
 const verifyToken = async (req, res, next) => {

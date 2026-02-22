@@ -22,9 +22,10 @@ process.on('unhandledRejection', (reason, promise) => {
 dotenv.config()
 const PORT = process.env.USER_PORT || process.env.PORT || 3001
 const { connect } = require('./Model/dataBaseConnection')
+const { connect: connectCommonDb } = require('../Common Microservice/common_functions/databaseConnection')
 
 // Connect to database first
-connect().then(() => {
+Promise.all([connect(), connectCommonDb()]).then(() => {
     const userRouter = require('./Router/user')
     //middlewares
 
