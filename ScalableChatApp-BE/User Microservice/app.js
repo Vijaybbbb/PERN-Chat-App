@@ -5,6 +5,17 @@ const dotenv = require('dotenv')
 const cookieParser = require('cookie-parser')
 const bodyParser = require('body-parser');
 
+// Global error handlers
+process.on('uncaughtException', (error) => {
+    console.error('UNCAUGHT EXCEPTION:', error);
+    process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('UNHANDLED REJECTION at:', promise, 'reason:', reason);
+    process.exit(1);
+});
+
 // const { buildUserScema } = require('./Model/userModel')
 
 
@@ -16,6 +27,12 @@ const { connect } = require('./Model/dataBaseConnection')
 connect().then(() => {
     const userRouter = require('./Router/user')
     //middlewares
+
+    // Log all incoming requests
+    app.use((req, res, next) => {
+        console.log(`Incoming request: ${req.method} ${req.url}`);
+        next();
+    });
 
     app.use(express.json())
     app.use(cookieParser())

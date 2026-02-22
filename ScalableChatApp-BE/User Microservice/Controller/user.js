@@ -18,8 +18,10 @@ const generateRefreshToken = (payload) => {
 };
 
 const register = async (req, res, next) => {
+    console.log('Register endpoint hit:', req.body);
     try {
         const db = getDb();
+        console.log('Got db connection');
         const existingUserResult = await db.query(queries.findUserByEmail, [req.body.userData.email]);
         
         if (existingUserResult.rows.length > 0) {
