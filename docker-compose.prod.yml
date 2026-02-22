@@ -8,8 +8,11 @@ services:
     environment:
       - NODE_ENV=production
       - USER_PORT=3001
+      - PORT=3001
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
       - POSTGRES_DB=${POSTGRES_DB}
@@ -21,6 +24,7 @@ services:
     depends_on:
       - postgres
       - redis
+      - rabbitmq
     restart: unless-stopped
 
   chat-service:
@@ -30,8 +34,11 @@ services:
     environment:
       - NODE_ENV=production
       - CHAT_PORT=3002
+      - PORT=3002
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
       - POSTGRES_DB=${POSTGRES_DB}
@@ -41,6 +48,7 @@ services:
     depends_on:
       - postgres
       - redis
+      - rabbitmq
     restart: unless-stopped
 
   database-service:
@@ -49,6 +57,7 @@ services:
       - "3003:3003"
     environment:
       - NODE_ENV=production
+      - PORT=3003
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
       - POSTGRES_DB=${POSTGRES_DB}
@@ -67,8 +76,11 @@ services:
     environment:
       - NODE_ENV=production
       - MESSAGE_PORT=3004
+      - PORT=3004
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
       - POSTGRES_DB=${POSTGRES_DB}
@@ -84,6 +96,7 @@ services:
     depends_on:
       - postgres
       - redis
+      - rabbitmq
     restart: unless-stopped
 
   socket-service:
@@ -93,10 +106,14 @@ services:
     environment:
       - NODE_ENV=production
       - SOCKET_PORT=3005
+      - PORT=3005
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
     depends_on:
       - redis
+      - rabbitmq
     restart: unless-stopped
 
   frontend:
@@ -126,6 +143,13 @@ services:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"
     restart: unless-stopped
 
 volumes:
