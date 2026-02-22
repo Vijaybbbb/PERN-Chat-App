@@ -46,6 +46,11 @@ connect().then(() => {
 
     app.use('/user', userRouter);
 
+    // Simple test endpoint
+    app.get('/health', (req, res) => {
+        res.json({ status: 'ok', timestamp: new Date().toISOString() });
+    });
+
     app.use((err, req, res, next) => {
         const errorStatus = err.status || 500
         const errorMessage = err.message || 'Something Went Wrong'
