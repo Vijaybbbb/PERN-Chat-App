@@ -26,6 +26,11 @@ Promise.all([connect(), connectCommonDb(), connectRabbitMQ()]).then(() => {
         credentials: true
     }))
 
+    // Health check endpoint
+    app.get('/health', (req, res) => {
+        res.status(200).json({ status: 'ok', service: 'message-service' });
+    });
+
     app.use('/message', messageRouter)
 
     app.use((err, req, res, next) => {
