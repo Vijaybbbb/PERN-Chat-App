@@ -31,7 +31,9 @@ const register = async (req, res, next) => {
         }
 
         const { name, email, password } = req.body.userData;
+        console.log('Hashing password...');
         const hashedPassword = await bcrypt.hash(password, 10);
+        console.log('Password hashed, creating user...');
         
         const newUserResult = await db.query(queries.createUser, [
             name,
@@ -39,15 +41,19 @@ const register = async (req, res, next) => {
             hashedPassword,
             req.body.images
         ]);
+        console.log('User created:', newUserResult.rows[0]);
         
         const newUser = newUserResult.rows[0];
 
+        console.log('Generating tokens...');
         const tokenPayload = { id: newUser.id, isAdmin: newUser.isAdmin };
         const accessToken = generateAccessToken(tokenPayload);
         const refreshToken = generateRefreshToken(tokenPayload);
         
+        console.log('Storing refresh token in Redis...');
         // Store refresh token in Redis
         await redisClient.setEx(`refresh_token:${newUser.id}`, 7 * 24 * 60 * 60, refreshToken);
+        console.log('Token stored, sending response...');
         
         const { password: userPassword, isAdmin, ...otherDetails } = newUser;
         
