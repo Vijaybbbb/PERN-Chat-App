@@ -1,9 +1,9 @@
 import axios from 'axios'
 import { getAccessToken, updateAccessToken, clearStoredUser } from './auth'
 
-const USER_SERVICE_URL = import.meta.env.VITE_USER_SERVICE_URL || 'http://localhost:4002'
-const CHAT_SERVICE_URL = import.meta.env.VITE_CHAT_SERVICE_URL || 'http://localhost:4001'
-const MESSAGE_SERVICE_URL = import.meta.env.VITE_MESSAGE_SERVICE_URL || 'http://localhost:4003'
+const USER_SERVICE_URL = import.meta.env.VITE_USER_SERVICE_URL !== undefined ? import.meta.env.VITE_USER_SERVICE_URL : 'http://localhost:4002'
+const CHAT_SERVICE_URL = import.meta.env.VITE_CHAT_SERVICE_URL !== undefined ? import.meta.env.VITE_CHAT_SERVICE_URL : 'http://localhost:4001'
+const MESSAGE_SERVICE_URL = import.meta.env.VITE_MESSAGE_SERVICE_URL !== undefined ? import.meta.env.VITE_MESSAGE_SERVICE_URL : 'http://localhost:4003'
 
 export const axiosRequest=axios.create({
        baseURL:'http://localhost:',
