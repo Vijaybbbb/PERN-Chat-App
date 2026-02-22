@@ -1,6 +1,6 @@
 const queries = require('../Model/queries');
 const { createError } = require('../../Common Microservice');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs'); // Changed from bcrypt to bcryptjs
 const jwt = require('jsonwebtoken');
 const redisClient = require('../../Common Microservice/redisClient');
 const CACHE_TTL = process.env.CACHE_TTL || 3600;
