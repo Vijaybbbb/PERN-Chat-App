@@ -1,8 +1,11 @@
-const db = require('../Model/dataBaseConnection');
 const schemaQueries = require('../Model/schemaQueries');
+
+// Lazy load db to avoid initialization issues
+const getDb = () => require('../Model/dataBaseConnection');
 
 const createTables = async (req, res) => {
     try {
+        const db = getDb();
         console.log('Creating database tables...');
         
         // Create tables in order (respecting foreign key dependencies)
@@ -46,6 +49,7 @@ const createTables = async (req, res) => {
 
 const dropTables = async (req, res) => {
     try {
+        const db = getDb();
         console.log('Dropping all tables...');
         
         for (const dropQuery of schemaQueries.dropAllTables) {
@@ -71,6 +75,7 @@ const dropTables = async (req, res) => {
 
 const resetDatabase = async (req, res) => {
     try {
+        const db = getDb();
         console.log('Resetting database...');
         
         // Drop all tables
@@ -113,7 +118,7 @@ const resetDatabase = async (req, res) => {
 
 const checkTables = async (req, res) => {
     try {
-
+        const db = getDb();
         console.log(db)
         const result = await db.query(schemaQueries.checkTablesExist);
         const existingTables = result.rows.map(row => row.table_name);
@@ -140,6 +145,7 @@ const checkTables = async (req, res) => {
 
 const getTableInfo = async (req, res) => {
     try {
+        const db = getDb();
         const { tableName } = req.params;
         const result = await db.query(schemaQueries.getTableInfo, [tableName]);
         
@@ -161,6 +167,7 @@ const getTableInfo = async (req, res) => {
 
 const healthCheck = async (req, res) => {
     try {
+        const db = getDb();
         await db.query('SELECT 1');
         res.status(200).json({
             success: true,

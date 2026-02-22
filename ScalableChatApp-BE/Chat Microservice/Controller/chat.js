@@ -1,10 +1,13 @@
-const db = require('../Model/dataBaseConnection');
 const queries = require('../Model/queries');
 const redisClient = require('../../Common Microservice/redisClient');
 const CACHE_TTL = process.env.CACHE_TTL || 3600;
 
+// Lazy load db to avoid initialization issues
+const getDb = () => require('../Model/dataBaseConnection');
+
 const accessChat = async (req, res, next) => {
     try {
+        const db = getDb();
         const { userId } = req.params;
         if (!userId) {
             console.log("Userid is not available in params");
@@ -44,6 +47,7 @@ const fetchChat = async (req, res, next) => {
     const cacheKey = `chats:${req.userId}`;
     
     try {
+        const db = getDb();
         // Check cache
         const cachedChats = await redisClient.get(cacheKey);
         if (cachedChats) {
@@ -90,6 +94,7 @@ const fetchChat = async (req, res, next) => {
 
 const createGroup = async (req, res, next) => {
     try {
+        const db = getDb();
         const users = req.body.users;
         if (users.length < 2) {
             return res.status(400).json('More than 2 users required');
@@ -125,6 +130,7 @@ const createGroup = async (req, res, next) => {
 
 const renameGroup = async (req, res, next) => {
     try {
+        const db = getDb();
         const { chatId, chatName } = req.body;
         
         await db.query(queries.updateChatName, [chatName, chatId]);
@@ -144,6 +150,7 @@ const renameGroup = async (req, res, next) => {
 
 const addToGroup = async (req, res, next) => {
     try {
+        const db = getDb();
         const { chatId, userId } = req.body;
         
         await db.query(queries.addUserToGroup, [chatId, userId]);
@@ -163,6 +170,7 @@ const addToGroup = async (req, res, next) => {
 
 const removeFromGroup = async (req, res, next) => {
     try {
+        const db = getDb();
         const { chatId, userId } = req.body;
         
         await db.query(queries.removeUserFromGroup, [chatId, userId]);

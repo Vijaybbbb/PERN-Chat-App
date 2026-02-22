@@ -1,8 +1,10 @@
-const db = require('../Model/dataBaseConnection');
 const queries = require('../Model/queries');
 const redisClient = require('../../Common Microservice/redisClient');
 const { publishMessage } = require('../../Common Microservice/rabbitmqClient');
 const CACHE_TTL = process.env.CACHE_TTL || 3600;
+
+// Lazy load db to avoid initialization issues
+const getDb = () => require('../Model/dataBaseConnection');
 
 const sendMessage = async (req, res, next) => {
     const { content, chatId, attachment, messageType } = req.body;
@@ -13,6 +15,7 @@ const sendMessage = async (req, res, next) => {
     }
     
     try {
+        const db = getDb();
         // Create message
         const messageResult = await db.query(queries.createMessage, [
             req.userId,
@@ -56,6 +59,7 @@ const allMessages = async (req, res, next) => {
     const cacheKey = `messages:${chatId}`;
     
     try {
+        const db = getDb();
         // Check cache first
         const cachedMessages = await redisClient.get(cacheKey);
         if (cachedMessages) {
