@@ -8,7 +8,7 @@ const { connect } = require('./Model/dataBaseConnection');
 const { connectRabbitMQ } = require('../Common Microservice/rabbitmqClient');
 
 dotenv.config();
-const PORT = process.env.MESSAGE_PORT || 3003;
+const PORT = process.env.MESSAGE_PORT || process.env.PORT || 3004;
 
 // Connect to database and RabbitMQ
 Promise.all([connect(), connectRabbitMQ()]).then(() => {

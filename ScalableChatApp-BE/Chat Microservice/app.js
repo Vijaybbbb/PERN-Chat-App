@@ -7,7 +7,7 @@ const bodyParser = require('body-parser');
 const { connect } = require('./Model/dataBaseConnection');
 
 dotenv.config()
-const PORT =  process.env.CHAT_PORT || 3000
+const PORT = process.env.CHAT_PORT || process.env.PORT || 3002
 
 // Connect to database first
 connect().then(() => {
