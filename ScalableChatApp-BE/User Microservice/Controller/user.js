@@ -1,10 +1,12 @@
-const db = require('../Model/dataBaseConnection');
 const queries = require('../Model/queries');
 const { createError } = require('../../Common Microservice');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const redisClient = require('../../Common Microservice/redisClient');
 const CACHE_TTL = process.env.CACHE_TTL || 3600;
+
+// Lazy load db to avoid initialization issues
+const getDb = () => require('../Model/dataBaseConnection');
 
 // Token generation functions
 const generateAccessToken = (payload) => {
@@ -17,6 +19,7 @@ const generateRefreshToken = (payload) => {
 
 const register = async (req, res, next) => {
     try {
+        const db = getDb();
         const existingUserResult = await db.query(queries.findUserByEmail, [req.body.userData.email]);
         
         if (existingUserResult.rows.length > 0) {
@@ -64,6 +67,7 @@ const register = async (req, res, next) => {
 
 const login = async (req, res, next) => {
     try {
+        const db = getDb();
         const { email, password } = req.body;
         
         const existingUserResult = await db.query(queries.findUserByEmail, [email]);
@@ -111,6 +115,7 @@ const login = async (req, res, next) => {
 
 const allUsers = async (req, res, next) => {
     try {
+        const db = getDb();
         const searchQuery = req.query.search || '';
         const cacheKey = `users:search:${searchQuery}:${req.userId}`;
         
