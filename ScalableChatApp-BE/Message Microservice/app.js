@@ -11,8 +11,8 @@ const { connectRabbitMQ } = require('../Common Microservice/rabbitmqClient');
 dotenv.config();
 const PORT = process.env.MESSAGE_PORT || process.env.PORT || 3004;
 
-// Connect to database and RabbitMQ
-Promise.all([connect(), connectCommonDb(), connectRabbitMQ()]).then(() => {
+// Connect to databases first, RabbitMQ can connect async
+Promise.all([connect(), connectCommonDb()]).then(() => {
     const messageRouter = require('./Router/message')
 
     //middlewares
@@ -27,6 +27,9 @@ Promise.all([connect(), connectCommonDb(), connectRabbitMQ()]).then(() => {
     }))
 
     app.use('/message', messageRouter)
+
+    // Connect RabbitMQ asynchronously (non-blocking)
+    connectRabbitMQ().catch(err => console.error('RabbitMQ initial connection failed:', err));
 
     app.use((err, req, res, next) => {
         const errorStatus = err.status || 500
