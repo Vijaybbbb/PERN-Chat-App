@@ -32,8 +32,15 @@ const register = async (req, res, next) => {
 
         const { name, email, password } = req.body.userData;
         console.log('Hashing password...');
-        const hashedPassword = await bcrypt.hash(password, 10);
-        console.log('Password hashed, creating user...');
+        let hashedPassword;
+        try {
+            hashedPassword = await bcrypt.hash(password, 5);
+            console.log('Password hashed successfully');
+        } catch (hashError) {
+            console.error('Bcrypt hash error:', hashError);
+            return next(createError(500, 'Password hashing failed'));
+        }
+        console.log('Creating user...');
         
         const newUserResult = await db.query(queries.createUser, [
             name,
