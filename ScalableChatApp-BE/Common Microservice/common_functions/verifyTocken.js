@@ -1,8 +1,10 @@
 const jwt = require('jsonwebtoken');
 const { createError } = require('./error.js');
-const db = require('./databaseConnection.js');
 const queries = require('./queries.js');
 const redisClient = require('../redisClient.js');
+
+// Lazy load db to avoid initialization issues
+const getDb = () => require('./databaseConnection.js');
 
 const verifyToken = async (req, res, next) => {
     try {
@@ -23,6 +25,7 @@ const verifyToken = async (req, res, next) => {
             }
             
             // Get user from PostgreSQL
+            const db = getDb();
             const userResult = await db.query(queries.findUserById, [decoded.id]);
             
             if (userResult.rows.length === 0) {
@@ -79,6 +82,7 @@ const handleTokenRefresh = async (req, res, next) => {
         });
         
         // Get user and continue
+        const db = getDb();
         const userResult = await db.query(queries.findUserById, [decoded.id]);
         if (userResult.rows.length === 0) {
             return next(createError(401, 'User not found'));
