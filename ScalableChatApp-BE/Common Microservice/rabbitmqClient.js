@@ -8,7 +8,11 @@ let channel, connection;
 
 const connectRabbitMQ = async () => {
     try {
-        connection = await amqp.connect(process.env.RABBITMQ_URL || 'amqp://localhost');
+        const rabbitmqHost = process.env.RABBITMQ_HOST || 'localhost';
+        const rabbitmqPort = process.env.RABBITMQ_PORT || 5672;
+        const rabbitmqUrl = process.env.RABBITMQ_URL || `amqp://${rabbitmqHost}:${rabbitmqPort}`;
+        
+        connection = await amqp.connect(rabbitmqUrl);
         channel = await connection.createChannel();
         
         await channel.assertQueue('messages', { durable: true });
