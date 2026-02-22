@@ -10,7 +10,7 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const app = express();
 const server = http.createServer(app);
-const PORT = process.env.SOCKET_PORT || 4004;
+const PORT = process.env.SOCKET_PORT || process.env.PORT || 3005;
 
 // Track online users
 const onlineUsers = new Map();

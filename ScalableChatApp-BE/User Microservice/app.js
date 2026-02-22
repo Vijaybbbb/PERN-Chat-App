@@ -9,7 +9,7 @@ const bodyParser = require('body-parser');
 
 
 dotenv.config()
-const PORT = process.env.USER_PORT || 3001
+const PORT = process.env.USER_PORT || process.env.PORT || 3001
 const { connect } = require('./Model/dataBaseConnection')
 
 // Connect to database first
