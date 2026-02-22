@@ -5,13 +5,14 @@ const dotenv = require('dotenv');
 const cookieParser = require('cookie-parser');
 const bodyParser = require('body-parser');
 const { connect } = require('./Model/dataBaseConnection');
+const { connect: connectCommonDb } = require('../Common Microservice/common_functions/databaseConnection');
 const { connectRabbitMQ } = require('../Common Microservice/rabbitmqClient');
 
 dotenv.config();
 const PORT = process.env.MESSAGE_PORT || process.env.PORT || 3004;
 
 // Connect to database and RabbitMQ
-Promise.all([connect(), connectRabbitMQ()]).then(() => {
+Promise.all([connect(), connectCommonDb(), connectRabbitMQ()]).then(() => {
     const messageRouter = require('./Router/message')
 
     //middlewares

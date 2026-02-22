@@ -5,12 +5,13 @@ const dotenv = require('dotenv');
 const cookieParser = require('cookie-parser');
 const bodyParser = require('body-parser');
 const { connect } = require('./Model/dataBaseConnection');
+const { connect: connectCommonDb } = require('../Common Microservice/common_functions/databaseConnection');
 
 dotenv.config()
 const PORT = process.env.CHAT_PORT || process.env.PORT || 3002
 
 // Connect to database first
-connect().then(() => {
+Promise.all([connect(), connectCommonDb()]).then(() => {
     // const userRouter = require('./Router/user')
     const chatRouter = require('./Router/chat')
     //const messageRouter = require('./Router/message')
