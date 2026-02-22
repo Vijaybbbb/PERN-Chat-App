@@ -38,8 +38,11 @@ module.exports = {
     connect,
     query: (text, params) => {
         if (!pool) {
-            throw new Error('Database pool not initialized. Call connect() first.');
+            const error = new Error('Database pool not initialized. Call connect() first.');
+            console.error('DB QUERY ERROR:', error.message);
+            throw error;
         }
+        console.log('Executing query:', text.substring(0, 50));
         return pool.query(text, params);
     },
     get pool() {
