@@ -22,7 +22,9 @@ const register = async (req, res, next) => {
     try {
         const db = getDb();
         console.log('Got db connection');
+        console.log('About to query database for existing user');
         const existingUserResult = await db.query(queries.findUserByEmail, [req.body.userData.email]);
+        console.log('Query completed, result:', existingUserResult.rows.length);
         
         if (existingUserResult.rows.length > 0) {
             return next(createError(401, 'User already Exist'));
