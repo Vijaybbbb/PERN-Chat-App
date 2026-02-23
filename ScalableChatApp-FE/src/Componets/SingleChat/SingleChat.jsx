@@ -110,6 +110,7 @@ const SingleChat = ({fetchAgain,setFetchAgain}) => {
              }
              
              const {data}  = await messageAxios.post(`/message`, messageData, {withCredentials:true})
+             socket.emit('new message',data)
              setMessages([...messages,data])
              setFetchAgain(prev => !prev) // Refresh chat list
 
