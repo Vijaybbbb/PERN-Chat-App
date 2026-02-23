@@ -68,14 +68,6 @@ io.on('connection', (socket) => {
     
     socket.on('stop typing', (room) => socket.in(room).emit('stop typing'));
 
-    socket.on('new message', async (newMessageRecived) => {
-        // Publish to RabbitMQ instead of direct emit
-        await publishMessage('messages', {
-            type: 'new_message',
-            data: newMessageRecived
-        });
-    });
-
     socket.on('get online users', async () => {
         const onlineUserIds = Array.from(onlineUsers.keys());
         socket.emit('online users', onlineUserIds);
