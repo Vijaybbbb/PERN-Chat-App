@@ -68,6 +68,18 @@ io.on('connection', (socket) => {
     
     socket.on('stop typing', (room) => socket.in(room).emit('stop typing'));
 
+    socket.on('new message', async (newMessageRecived) => {
+        const chat = newMessageRecived.chat;
+        
+        if (chat && chat.users) {
+            chat.users.forEach(userData => {
+                if (userData.id != newMessageRecived.sender.id) {
+                    io.to(userData.id).emit('message recieved', newMessageRecived);
+                }
+            });
+        }
+    });
+
     socket.on('get online users', async () => {
         const onlineUserIds = Array.from(onlineUsers.keys());
         socket.emit('online users', onlineUserIds);
