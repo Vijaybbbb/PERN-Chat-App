@@ -1,7 +1,7 @@
+require('dotenv').config({ path: '../.env' });
 const express = require('express')
 const cors = require('cors')
 const app = express()
-const dotenv = require('dotenv')
 const cookieParser = require('cookie-parser')
 const bodyParser = require('body-parser');
 
@@ -18,9 +18,7 @@ process.on('unhandledRejection', (reason, promise) => {
 
 // const { buildUserScema } = require('./Model/userModel')
 
-
-dotenv.config()
-const PORT = process.env.USER_PORT || process.env.PORT || 3001
+const PORT = process.env.USER_PORT || process.env.PORT || 4002
 const { connect } = require('./Model/dataBaseConnection')
 const { connect: connectCommonDb } = require('../Common Microservice/common_functions/databaseConnection')
 

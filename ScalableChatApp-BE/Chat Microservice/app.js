@@ -8,7 +8,7 @@ const { connect } = require('./Model/dataBaseConnection');
 const { connect: connectCommonDb } = require('../Common Microservice/common_functions/databaseConnection');
 
 dotenv.config()
-const PORT = process.env.CHAT_PORT || process.env.PORT || 3002
+const PORT = process.env.CHAT_PORT || process.env.PORT || 4001
 
 // Connect to database first
 Promise.all([connect(), connectCommonDb()]).then(() => {
