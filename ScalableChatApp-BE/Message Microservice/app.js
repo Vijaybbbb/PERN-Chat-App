@@ -1,14 +1,14 @@
 const express = require('express');
 const cors = require('cors');
 const app = express();
-const dotenv = require('dotenv');
+require('dotenv').config({ path: '../.env' });
 const cookieParser = require('cookie-parser');
 const bodyParser = require('body-parser');
 const { connect } = require('./Model/dataBaseConnection');
 const { connect: connectCommonDb } = require('../Common Microservice/common_functions/databaseConnection');
 const { connectRabbitMQ } = require('../Common Microservice/rabbitmqClient');
 
-dotenv.config();
+
 const PORT = process.env.MESSAGE_PORT || process.env.PORT || 3004;
 
 // Connect to databases first, RabbitMQ can connect async
