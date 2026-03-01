@@ -52,21 +52,29 @@ const SingleChat = ({fetchAgain,setFetchAgain}) => {
      socket = io(ENDPOINT, {
       withCredentials: true,
     });
+      console.log('Socket connecting to:', ENDPOINT);
       socket.emit('setup',userId)
       socket.on('connected',()=>{
+        console.log('Socket connected successfully');
         setSocketConnected(true)
       })
       socket.on('typing',()=>{
+        console.log('Typing event received');
         setIsTyping(true)
       })
       socket.on('stop typing',()=>{
+        console.log('Stop typing event received');
         setIsTyping(false)
       })
+      socket.on('connect_error', (error) => {
+        console.error('Socket connection error:', error);
+      });
   },[])
 
 
   useEffect(()=>{
     socket.on('message recieved',(newMessageRecived)=>{
+        console.log('Message received:', newMessageRecived);
         if(!selectedChatCompare || selectedChatCompare.id !== newMessageRecived.chat.id){
               if(!notification.includes(newMessageRecived)){
         
@@ -110,6 +118,7 @@ const SingleChat = ({fetchAgain,setFetchAgain}) => {
              }
              
              const {data}  = await messageAxios.post(`/message`, messageData, {withCredentials:true})
+             console.log('Message sent, emitting to socket:', data);
              socket.emit('new message',data)
              setMessages([...messages,data])
              setFetchAgain(prev => !prev) // Refresh chat list
