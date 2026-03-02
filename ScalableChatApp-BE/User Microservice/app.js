@@ -18,7 +18,7 @@ process.on('unhandledRejection', (reason, promise) => {
 
 // const { buildUserScema } = require('./Model/userModel')
 
-const PORT = process.env.USER_PORT || process.env.PORT || 4002
+const PORT = process.env.USER_PORT || process.env.PORT || 3001
 const { connect } = require('./Model/dataBaseConnection')
 const { connect: connectCommonDb } = require('../Common Microservice/common_functions/databaseConnection')
 
