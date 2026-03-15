@@ -140,7 +140,15 @@ async function accessChat(userid) {
 
        >
               <Tooltip label='Search Users to Chat ' hasArrow placement='bottom-end'>
-                     <Button variant={'ghost'} onClick={onOpen}>
+                     <Button 
+                       variant={'ghost'} 
+                       onClick={onOpen} 
+                       color={isDarkMode ? 'var(--text-primary)' : 'black'}
+                       _hover={{
+                         bg: isDarkMode ? 'var(--bg-secondary)' : 'gray.100',
+                         color: isDarkMode ? 'var(--text-primary)' : 'black'
+                       }}
+                     >
                          <i class="fa-solid fa-magnifying-glass"></i>
                          <Text d={{base:'none',md:'flex'}} px='4'>
                             Search User
