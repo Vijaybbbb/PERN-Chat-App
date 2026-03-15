@@ -6,6 +6,7 @@
   --text-primary: black;
   --text-secondary: #333;
   --border-color: #E2E8F0;
+  --app-bg: #f0f2f5;
 }
 
 [data-theme="dark"] {
@@ -14,19 +15,14 @@
   --text-primary: white;
   --text-secondary: #E2E8F0;
   --border-color: #4A5568;
+  --app-bg: #0f1419;
 }
 
 .App{
        min-height: 100vh;
        display: flex;
-       background-image: url('./assets/background.png'); 
-       background-position: center;
-       background-size: cover;
+       background-color: var(--app-bg);
        transition: all 0.3s ease;
-}
-
-[data-theme="dark"] .App {
-  background-image: linear-gradient(rgba(26, 32, 44, 0.8), rgba(26, 32, 44, 0.8)), url('./assets/background.png');
 }
 
 ::-webkit-scrollbar{

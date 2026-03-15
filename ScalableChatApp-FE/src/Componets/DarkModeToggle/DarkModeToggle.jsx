@@ -14,6 +14,10 @@ const DarkModeToggle = () => {
       variant="ghost"
       onClick={() => dispatch(toggleDarkMode())}
       aria-label="Toggle dark mode"
+      color={isDarkMode ? 'var(--text-primary)' : 'gray.600'}
+      _hover={{
+        bg: isDarkMode ? 'var(--bg-secondary)' : 'gray.100'
+      }}
     >
       {isDarkMode ? <SunIcon /> : <MoonIcon />}
     </Button>
