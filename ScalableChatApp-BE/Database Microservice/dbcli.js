@@ -31,6 +31,9 @@ const commands = {
         
         await pool.query(schemaQueries.createChatUsersTable);
         console.log('✓ Chat_users table created');
+
+        await pool.query(schemaQueries.createMessageDeliveriesTable);
+        console.log('✓ Message_deliveries table created');
         
         for (const indexQuery of schemaQueries.createIndexes) {
             await pool.query(indexQuery);
@@ -65,7 +68,7 @@ const commands = {
         
         console.log('Existing tables:', existingTables);
         
-        const expectedTables = ['users', 'chats', 'messages', 'chat_users'];
+        const expectedTables = ['users', 'chats', 'messages', 'chat_users', 'message_deliveries'];
         const missingTables = expectedTables.filter(table => !existingTables.includes(table));
         
         if (missingTables.length > 0) {

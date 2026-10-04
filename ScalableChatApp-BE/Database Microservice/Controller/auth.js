@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
+const { getSecret, isTokenBlacklisted } = require('../../Common Microservice/common_functions/token');
 
 // Default admin credentials (change in production)
 const ADMIN_CREDENTIALS = {
@@ -14,7 +15,7 @@ const adminLogin = async (req, res) => {
         if (username === ADMIN_CREDENTIALS.username && password === ADMIN_CREDENTIALS.password) {
             const token = jwt.sign(
                 { username, role: 'admin' },
-                process.env.JWT_SECRET_KEY,
+                getSecret('JWT_ACCESS_SECRET'),
                 { expiresIn: '24h' }
             );
             
@@ -38,7 +39,7 @@ const adminLogin = async (req, res) => {
     }
 };
 
-const verifyAdmin = (req, res, next) => {
+const verifyAdmin = async (req, res, next) => {
     const token = req.headers.authorization?.split(' ')[1];
     
     if (!token) {
@@ -49,7 +50,13 @@ const verifyAdmin = (req, res, next) => {
     }
     
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
+        const decoded = jwt.verify(token, getSecret('JWT_ACCESS_SECRET'));
+        if (await isTokenBlacklisted(token)) {
+            return res.status(401).json({
+                success: false,
+                message: 'Token revoked'
+            });
+        }
         if (decoded.role !== 'admin') {
             return res.status(403).json({
                 success: false,

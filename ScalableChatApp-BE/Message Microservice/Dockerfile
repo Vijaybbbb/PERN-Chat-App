@@ -1,8 +1,11 @@
 FROM node:18-alpine
 WORKDIR /app
 COPY ["Message Microservice/package*.json", "./"]
+COPY ["Common Microservice/package*.json", "/tmp/common/"]
 RUN npm install --production
+RUN cd /tmp/common && npm install --production && cp -a node_modules/. /app/node_modules/
 COPY ["Message Microservice/", "./"]
-COPY ["Common Microservice/", "../Common Microservice/"]
+COPY ["Common Microservice/", "/Common Microservice/"]
+RUN ln -s /app/node_modules "/Common Microservice/node_modules"
 EXPOSE 3004
 CMD ["node", "app.js"]

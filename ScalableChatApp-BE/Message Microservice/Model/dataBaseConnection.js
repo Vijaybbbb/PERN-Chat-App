@@ -18,6 +18,19 @@ const connect = async () => {
     try {
         await pool.connect();
         console.log("PostgreSQL Database connected");
+
+        // Idempotent migration for existing installations. The database
+        // service/dbcli also creates this table during normal setup.
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS message_deliveries (
+                "messageId" UUID NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+                "recipientId" UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                "deliveredAt" TIMESTAMP,
+                "readAt" TIMESTAMP,
+                "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY ("messageId", "recipientId")
+            );
+        `);
     } catch (error) {
         console.log(error);
         console.log('Connection Failed');

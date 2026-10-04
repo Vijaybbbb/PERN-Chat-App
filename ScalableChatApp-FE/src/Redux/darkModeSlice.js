@@ -1,7 +1,9 @@
 import { createSlice } from '@reduxjs/toolkit'
 
 const initialState = {
-  isDarkMode: false
+  // Dark mode is the product default; the toolbar toggle can still switch
+  // the current session back to the light palette.
+  isDarkMode: true
 }
 
 export const darkModeSlice = createSlice({

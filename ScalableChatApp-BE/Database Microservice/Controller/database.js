@@ -20,6 +20,9 @@ const createTables = async (req, res) => {
         
         await db.query(schemaQueries.createChatUsersTable);
         console.log('✓ Chat_users table created');
+
+        await db.query(schemaQueries.createMessageDeliveriesTable);
+        console.log('✓ Message_deliveries table created');
         
         // Create indexes
         for (const indexQuery of schemaQueries.createIndexes) {
@@ -34,7 +37,7 @@ const createTables = async (req, res) => {
         res.status(200).json({
             success: true,
             message: 'All tables created successfully',
-            tables: ['users', 'chats', 'messages', 'chat_users']
+            tables: ['users', 'chats', 'messages', 'chat_users', 'message_deliveries']
         });
         
     } catch (error) {
@@ -89,6 +92,7 @@ const resetDatabase = async (req, res) => {
         await db.query(schemaQueries.createChatsTable);
         await db.query(schemaQueries.createMessagesTable);
         await db.query(schemaQueries.createChatUsersTable);
+        await db.query(schemaQueries.createMessageDeliveriesTable);
         console.log('✓ Tables recreated');
         
         // Create indexes
@@ -123,7 +127,7 @@ const checkTables = async (req, res) => {
         const result = await db.query(schemaQueries.checkTablesExist);
         const existingTables = result.rows.map(row => row.table_name);
         console.log(result.rows,'///////////////')
-        const expectedTables = ['users', 'chats', 'messages', 'chat_users'];
+        const expectedTables = ['users', 'chats', 'messages', 'chat_users', 'message_deliveries'];
         const missingTables = expectedTables.filter(table => !existingTables.includes(table));
         
         res.status(200).json({
