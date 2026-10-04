@@ -1,4 +1,4 @@
-import { Box, Container,Text,TabList, Tab, TabPanels, TabPanel, Tabs, Button, HStack } from '@chakra-ui/react'
+import { Box, Text, TabList, Tab, TabPanels, TabPanel, Tabs, Button, HStack, Badge } from '@chakra-ui/react'
 import React, { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
@@ -8,7 +8,6 @@ import DarkModeToggle from '../../Componets/DarkModeToggle/DarkModeToggle'
 import { isAuthenticated } from '../../utils/auth'
 
 const HomePage = () => {
-  const { isDarkMode } = useSelector(state => state.darkMode)
   const { userId } = useSelector(state => state.userDetails)
   const navigate = useNavigate()
   
@@ -24,73 +23,44 @@ const HomePage = () => {
   };
 
   return (
-
-    <Container maxWidth={'xl'} centerContent>
-
-      <Box
-        d='flex'
-        justifyContent='center'
-        textAlign={'center'}
-        p={3} 
-        bg={isDarkMode ? 'var(--bg-primary)' : 'white'}
-        color={isDarkMode ? 'var(--text-primary)' : 'black'}
-        w={'100%'}
-        m={'40px 0 15px 0 '}
-        borderRadius={'lg'}
-        borderWidth={'1px'}
-        borderColor={isDarkMode ? 'var(--border-color)' : 'gray.200'}
-        >
-        <HStack justify="space-between" w="100%">
-          <Box flex={1} display="flex" justifyContent="flex-start">
-            <DarkModeToggle />
-          </Box>
-          <Text fontSize={'4xl'} fontStyle={'Work sans'}>Chat Line</Text>
-          <Box flex={1} display="flex" justifyContent="flex-end">
-            <Button 
-              size="sm" 
-              colorScheme="red" 
-              variant="outline"
-              onClick={openAdminPanel}
-            >
-              Admin
-            </Button>
-          </Box>
+    <div className="auth-shell">
+      <section className="auth-hero">
+        <Text className="eyebrow">A calmer way to connect</Text>
+        <Text className="hero-title">Conversations that feel close, wherever you are.</Text>
+        <Text className="hero-copy">
+          Chat Line brings your people, messages, voice notes, and calls together in one focused space.
+          Simple enough for every day, polished enough for the moments that matter.
+        </Text>
+        <HStack spacing={3} mt={8} flexWrap="wrap">
+          <Badge colorScheme="blue" px={3} py={2} borderRadius="full">Real-time messaging</Badge>
+          <Badge colorScheme="green" px={3} py={2} borderRadius="full">Private by design</Badge>
         </HStack>
-      </Box>
+      </section>
 
-      <Box 
-        bg={isDarkMode ? 'var(--bg-primary)' : 'white'} 
-        color={isDarkMode ? 'var(--text-primary)' : 'black'}
-        p={4} 
-        borderRadius={'lg'} 
-        borderWidth={'1px'} 
-        borderColor={isDarkMode ? 'var(--border-color)' : 'gray.200'}
-        w={'100%'}
-      >
-        <Tabs variant='soft-rounded' >
-          <TabList>
-            <Tab width={'50%'}>Login</Tab>
-            <Tab width={'50%'}>Sign up</Tab>
+      <section className="auth-card">
+        <HStack justify="space-between" align="center" mb={8}>
+          <Box>
+            <Text className="brand-title" fontSize="2xl" fontWeight="700">Chat Line</Text>
+            <Text color="var(--text-secondary)" fontSize="sm" mt={1}>Welcome back. Let’s get you connected.</Text>
+          </Box>
+          <HStack spacing={1}>
+            <DarkModeToggle />
+            <Button size="sm" variant="ghost" colorScheme="red" onClick={openAdminPanel}>Admin</Button>
+          </HStack>
+        </HStack>
+
+        <Tabs variant="soft-rounded" colorScheme="blue">
+          <TabList bg="var(--surface-soft)" p={1} borderRadius="14px">
+            <Tab width="50%">Log in</Tab>
+            <Tab width="50%">Create account</Tab>
           </TabList>
           <TabPanels>
-
-            <TabPanel>
-                      <Login/>  
-            </TabPanel>
-
-
-            <TabPanel>
-                       <Signup/>
-            </TabPanel>
-
-
+            <TabPanel px={0} pt={8}><Login /></TabPanel>
+            <TabPanel px={0} pt={8}><Signup /></TabPanel>
           </TabPanels>
         </Tabs>
-
-      </Box>
-
-    </Container>
-
+      </section>
+    </div>
   )
 }
 

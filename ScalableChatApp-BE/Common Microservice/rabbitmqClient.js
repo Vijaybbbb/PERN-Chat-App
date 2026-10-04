@@ -17,6 +17,8 @@ const connectRabbitMQ = async () => {
         
         await channel.assertQueue('messages', { durable: true });
         await channel.assertQueue('notifications', { durable: true });
+        await channel.assertQueue('message_status', { durable: true });
+        await channel.assertQueue('message_status_updates', { durable: true });
         
         console.log('RabbitMQ Connected');
         return channel;
@@ -38,11 +40,17 @@ const publishMessage = async (queue, message) => {
 const consumeMessages = async (queue, callback) => {
     try {
         if (!channel) await connectRabbitMQ();
-        await channel.consume(queue, (msg) => {
+        await channel.assertQueue(queue, { durable: true });
+        await channel.consume(queue, async (msg) => {
             if (msg) {
-                const content = JSON.parse(msg.content.toString());
-                callback(content);
-                channel.ack(msg);
+                try {
+                    const content = JSON.parse(msg.content.toString());
+                    await callback(content);
+                    channel.ack(msg);
+                } catch (error) {
+                    console.error(`RabbitMQ consumer error for ${queue}:`, error);
+                    // Leave the message unacknowledged so RabbitMQ can redeliver it.
+                }
             }
         }, { noAck: false });
     } catch (error) {

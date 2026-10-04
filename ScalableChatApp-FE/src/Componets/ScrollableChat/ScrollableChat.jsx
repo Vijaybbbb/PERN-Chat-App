@@ -37,17 +37,31 @@ const ScrollableChat = ({messages}) => {
   }
 
   const getMessageBubbleColor = (senderId) => {
+    const isOwnMessage = String(senderId) === String(userId)
     if (isDarkMode) {
-      return senderId === userId ? '#4A90E2' : '#48BB78' // Blue for sent, green for received in dark mode
+      return isOwnMessage ? '#176d9f' : '#24344a'
     }
-    return senderId === userId ? '#BEE3F8' : '#9ad99f' // Original light mode colors
+    return isOwnMessage ? '#dff3ff' : '#ffffff'
+  }
+
+  const getDeliveryLabel = (deliveryStatus) => {
+    if (!deliveryStatus || deliveryStatus.recipientCount === 0) return '✓ Sent'
+
+    const { recipientCount, deliveredCount, readCount } = deliveryStatus
+    if (readCount > 0) {
+      return readCount === recipientCount ? '✓✓ Read' : `✓✓ Read ${readCount}/${recipientCount}`
+    }
+    if (deliveredCount > 0) {
+      return deliveredCount === recipientCount ? '✓✓ Delivered' : `✓✓ Delivered ${deliveredCount}/${recipientCount}`
+    }
+    return '✓ Sent'
   }
 
   return (
     <ScrollableFeed>
        {
               messages && messages.map((m,i)=>(
-                     <div style={{display:'flex'}} key={m.id}>
+                     <div className={`message-row ${String(m.sender.id) === String(userId) ? 'message-row--outgoing' : 'message-row--incoming'}`} key={m.id}>
                                    {
                                           (isSameSender(messages,m,i,userId)) || 
                                           (isLastMessage(messages,i,userId)) ?
@@ -91,7 +105,7 @@ const ScrollableChat = ({messages}) => {
                                           </>
                                           )
                                    }
-                                   <div style={{
+                                   <div className="message-bubble" style={{
                                           background: getMessageBubbleColor(m.sender.id),
                                           color: isDarkMode ? 'white' : 'black',
                                           borderRadius:'20px',
@@ -162,6 +176,17 @@ const ScrollableChat = ({messages}) => {
                                                    </Text>
                                                  )}
 
+                                                 {m.sender.id === userId && (
+                                                   <Text
+                                                     mt={1}
+                                                     textAlign="right"
+                                                     fontSize="xs"
+                                                     color={isDarkMode ? 'whiteAlpha.700' : 'blue.700'}
+                                                     aria-label={`Message status: ${getDeliveryLabel(m.deliveryStatus)}`}
+                                                   >
+                                                     {getDeliveryLabel(m.deliveryStatus)}
+                                                   </Text>
+                                                 )}
                                    </div>
                      </div>
               ))

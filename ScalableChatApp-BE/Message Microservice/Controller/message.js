@@ -6,6 +6,46 @@ const CACHE_TTL = process.env.CACHE_TTL || 3600;
 // Lazy load db to avoid initialization issues
 const getDb = () => require('../Model/dataBaseConnection');
 
+const publishDeliveryUpdate = async (messageId) => {
+    const db = getDb();
+    const result = await db.query(queries.getDeliveryUpdate, [messageId]);
+
+    if (result.rows.length > 0) {
+        await publishMessage('message_status_updates', {
+            type: 'message_status_updated',
+            data: result.rows[0]
+        });
+        return result.rows[0];
+    }
+
+    return null;
+};
+
+const consumeStatusEvents = async () => {
+    const db = getDb();
+
+    await require('../../Common Microservice/rabbitmqClient').consumeMessages(
+        'message_status',
+        async (statusEvent) => {
+            const { type, messageId, recipientId } = statusEvent;
+            if (!messageId || !recipientId || !['message_delivered', 'message_read'].includes(type)) {
+                return;
+            }
+
+            const statusQuery = type === 'message_read' ? queries.markRead : queries.markDelivered;
+            const updated = await db.query(statusQuery, [messageId, recipientId]);
+
+            // Ignore forged/stale acknowledgements for users who are not recipients.
+            if (updated.rows.length > 0) {
+                const deliveryUpdate = await publishDeliveryUpdate(messageId);
+                if (deliveryUpdate?.chatId) {
+                    await redisClient.del(`messages:${deliveryUpdate.chatId}`);
+                }
+            }
+        }
+    );
+};
+
 const sendMessage = async (req, res, next) => {
     const { content, chatId, attachment, messageType } = req.body;
     console.log(req.body);
@@ -26,6 +66,10 @@ const sendMessage = async (req, res, next) => {
         ]);
         
         const messageId = messageResult.rows[0].id;
+
+        // Sent is represented by messages.createdAt. Create a delivery row for
+        // every recipient so delivered/read can be tracked independently.
+        await db.query(queries.createMessageDeliveries, [messageId, chatId, req.userId]);
         
         // Get message with details
         const messageWithDetailsResult = await db.query(queries.getMessageWithDetails, [messageId]);
@@ -82,5 +126,6 @@ const allMessages = async (req, res, next) => {
 
 module.exports = {
     sendMessage,
-    allMessages
+    allMessages,
+    consumeStatusEvents
 };

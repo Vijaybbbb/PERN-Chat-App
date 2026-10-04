@@ -1,53 +1,113 @@
-version: '3.8'
-
 services:
   user-service:
-    build: ./ScalableChatApp-BE/User\ Microservice
+    build:
+      context: ./ScalableChatApp-BE
+      dockerfile: "User Microservice/Dockerfile"
     ports:
       - "3001:3001"
     environment:
       - NODE_ENV=production
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=chatapp
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     depends_on:
       - postgres
 
   chat-service:
-    build: ./ScalableChatApp-BE/Chat\ Microservice
+    build:
+      context: ./ScalableChatApp-BE
+      dockerfile: "Chat Microservice/Dockerfile"
     ports:
       - "3002:3002"
     environment:
       - NODE_ENV=production
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=chatapp
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     depends_on:
       - postgres
 
   database-service:
-    build: ./ScalableChatApp-BE/Database\ Microservice
+    build:
+      context: ./ScalableChatApp-BE
+      dockerfile: "Database Microservice/Dockerfile"
     ports:
       - "3003:3003"
     environment:
       - NODE_ENV=production
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=chatapp
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - DB_ADMIN_USERNAME=postgres
+      - DB_ADMIN_PASSWORD=password
     depends_on:
       - postgres
 
   message-service:
-    build: ./ScalableChatApp-BE/Message\ Microservice
+    build:
+      context: ./ScalableChatApp-BE
+      dockerfile: "Message Microservice/Dockerfile"
     ports:
       - "3004:3004"
+    env_file:
+      - ./ScalableChatApp-BE/.env
     environment:
       - NODE_ENV=production
+      - MESSAGE_PORT=3004
+      - PORT=3004
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=chatapp
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_URL=amqp://rabbitmq:5672
     depends_on:
       - postgres
+      - rabbitmq
+    volumes:
+      - message_uploads:/app/uploads
 
   socket-service:
-    build: ./ScalableChatApp-BE/Socket\ Microservice
+    build:
+      context: ./ScalableChatApp-BE
+      dockerfile: "Socket Microservice/Dockerfile"
     ports:
       - "3005:3005"
     environment:
       - NODE_ENV=production
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+    depends_on:
+      - rabbitmq
 
   frontend:
     build: ./ScalableChatApp-FE
     ports:
-      - "80:80"
+      - "8080:80"
     depends_on:
       - user-service
       - chat-service
@@ -61,7 +121,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
@@ -70,5 +130,12 @@ services:
     ports:
       - "6379:6379"
 
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
 volumes:
   postgres_data:
+  message_uploads:

@@ -1,4 +1,5 @@
 const express = require('express');
+const path = require('path');
 const cors = require('cors');
 const app = express();
 require('dotenv').config({ path: '../.env' });
@@ -7,6 +8,7 @@ const bodyParser = require('body-parser');
 const { connect } = require('./Model/dataBaseConnection');
 const { connect: connectCommonDb } = require('../Common Microservice/common_functions/databaseConnection');
 const { connectRabbitMQ } = require('../Common Microservice/rabbitmqClient');
+const { consumeStatusEvents } = require('./Controller/message');
 
 
 const PORT = process.env.MESSAGE_PORT || process.env.PORT || 3004;
@@ -26,10 +28,13 @@ Promise.all([connect(), connectCommonDb()]).then(() => {
         credentials: true
     }))
 
+    app.use('/uploads', express.static(path.resolve(__dirname, 'uploads')))
     app.use('/message', messageRouter)
 
     // Connect RabbitMQ asynchronously (non-blocking)
-    connectRabbitMQ().catch(err => console.error('RabbitMQ initial connection failed:', err));
+    connectRabbitMQ()
+        .then(() => consumeStatusEvents())
+        .catch(err => console.error('RabbitMQ initial connection failed:', err));
 
     app.use((err, req, res, next) => {
         const errorStatus = err.status || 500

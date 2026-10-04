@@ -10,8 +10,9 @@ import {getSender, getSenderFull} from '../../utils/chatLogic'
 import GroupChat from '../GroupChat/GroupChat'
 import { setChat } from '../../Redux/chatsSlice'
 import io from 'socket.io-client'
+import { getAccessToken } from '../../utils/auth'
 
-const ENDPOINT = import.meta.env.VITE_SOCKET_SERVICE_URL || 'http://localhost:4004'
+const ENDPOINT = import.meta.env.VITE_SOCKET_SERVICE_URL || (import.meta.env.DEV ? 'http://localhost:4004' : window.location.origin)
 let socket;
 
 const MyChats = ({fetchAgain,setFetchAgain}) => {
@@ -30,9 +31,14 @@ const MyChats = ({fetchAgain,setFetchAgain}) => {
   const dispatch = useDispatch()
 
   useEffect(() => {
-    socket = io(ENDPOINT)
-    socket.emit('setup', userId)
-    socket.emit('get online users')
+    socket = io(ENDPOINT, {
+      withCredentials: true,
+      auth: { token: getAccessToken() },
+    })
+    socket.on('connect', () => {
+      socket.emit('setup', userId)
+      socket.emit('get online users')
+    })
     
     socket.on('online users', (users) => {
       setOnlineUsers(new Set(users))
@@ -92,6 +98,7 @@ const MyChats = ({fetchAgain,setFetchAgain}) => {
 
   return (
     <Box
+      className="chat-surface chat-sidebar"
       display={{ base: selectedChat ? 'none' : 'flex', md: 'flex' }}
       flexDir={'column'}
       alignItems={'center'}
@@ -104,6 +111,7 @@ const MyChats = ({fetchAgain,setFetchAgain}) => {
       borderColor={isDarkMode ? 'var(--border-color)' : 'gray.200'}
     >
       <Box
+        className="sidebar-heading"
         pb={3}
         px={3}
         fontSize={{ base: "28px", md: '30px' }}
@@ -113,7 +121,10 @@ const MyChats = ({fetchAgain,setFetchAgain}) => {
         justifyContent={'space-between'}
         alignItems={'center'}
       >
-          My Chats
+          <Box>
+            <Text fontSize="xl" fontWeight="700">Messages</Text>
+            <Text fontSize="xs" color="var(--text-secondary)" mt={1}>Stay close to your people</Text>
+          </Box>
         <GroupChat fetchAgain={fetchAgain} setFetchAgain={setFetchAgain}>
           <Button
             display={'flex'}
@@ -127,6 +138,7 @@ const MyChats = ({fetchAgain,setFetchAgain}) => {
 
 
       <Box
+      className="chat-list"
       display={'flex'}
       flexDir={'column'}
       p={3}
@@ -142,10 +154,11 @@ const MyChats = ({fetchAgain,setFetchAgain}) => {
         <Stack overflowY={'scroll'}>
           {data?.map((chat)=>(
             <Box
+                 className={`chat-list-item ${selectedChat?.id === chat.id ? 'is-selected' : ''}`}
                  onClick={()=>dispatch(setSelectedChat(chat))}
                  cursor={'pointer'}
-                 bg={selectedChat === chat ? '#38B2AC' : (isDarkMode ? 'var(--bg-primary)' : '#E8E8E8') }
-                 color={selectedChat === chat ? 'white' : (isDarkMode ? 'var(--text-primary)' : 'black')}
+                 bg={'transparent'}
+                 color={selectedChat?.id === chat.id ? 'white' : 'var(--text-primary)'}
                  px={3}
                  py={2}
                  borderRadius={'lg'}
@@ -188,7 +201,7 @@ const MyChats = ({fetchAgain,setFetchAgain}) => {
                     </Text>
                     <Text 
                       fontSize="xs" 
-                      color={selectedChat === chat ? 'whiteAlpha.800' : (isDarkMode ? 'var(--text-secondary)' : 'gray.600')}
+                      color={selectedChat?.id === chat.id ? 'whiteAlpha.800' : 'var(--text-secondary)'}
                       noOfLines={1}
                     >
                       {chat?.latestMessage ? 
@@ -201,7 +214,7 @@ const MyChats = ({fetchAgain,setFetchAgain}) => {
                 {chat?.latestMessage && (
                   <Text 
                     fontSize="xs" 
-                    color={selectedChat === chat ? 'whiteAlpha.700' : (isDarkMode ? 'var(--text-secondary)' : 'gray.500')}
+                    color={selectedChat?.id === chat.id ? 'whiteAlpha.700' : 'var(--text-secondary)'}
                     minW="fit-content"
                   >
                     {formatTime(chat.latestMessage.createdAt)}

@@ -77,11 +77,23 @@ const createTables = async () => {
             PRIMARY KEY ("chatId", "userId")
         );
     `;
+
+    const createMessageDeliveriesTable = `
+        CREATE TABLE IF NOT EXISTS message_deliveries (
+            "messageId" UUID NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+            "recipientId" UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            "deliveredAt" TIMESTAMP,
+            "readAt" TIMESTAMP,
+            "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY ("messageId", "recipientId")
+        );
+    `;
     
     await pool.query(createUsersTable);
     await pool.query(createChatsTable);
     await pool.query(createMessagesTable);
     await pool.query(createChatUsersTable);
+    await pool.query(createMessageDeliveriesTable);
 };
 
 module.exports = {

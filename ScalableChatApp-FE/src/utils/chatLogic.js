@@ -9,8 +9,8 @@
 
 
 export function getSenderFull(loggedUser,users){
-      
-      return users[0]?.id === loggedUser ? users[1] : users[0]
+      const firstUserIsLoggedIn = String(users?.[0]?.id) === String(loggedUser)
+      return firstUserIsLoggedIn ? users?.[1] : users?.[0]
 }
 
 

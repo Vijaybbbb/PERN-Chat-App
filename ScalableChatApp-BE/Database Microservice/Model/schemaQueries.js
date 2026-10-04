@@ -53,6 +53,19 @@ const schemaQueries = {
             PRIMARY KEY ("chatId", "userId")
         );
     `,
+
+    // Track delivery and read state for every message recipient.
+    // The message's createdAt timestamp is the sent timestamp.
+    createMessageDeliveriesTable: `
+        CREATE TABLE IF NOT EXISTS message_deliveries (
+            "messageId" UUID NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+            "recipientId" UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            "deliveredAt" TIMESTAMP,
+            "readAt" TIMESTAMP,
+            "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY ("messageId", "recipientId")
+        );
+    `,
     
     // Create indexes for better performance
     createIndexes: [
@@ -62,12 +75,15 @@ const schemaQueries = {
         'CREATE INDEX IF NOT EXISTS idx_chat_users_chat_id ON chat_users("chatId");',
         'CREATE INDEX IF NOT EXISTS idx_chat_users_user_id ON chat_users("userId");',
         'CREATE INDEX IF NOT EXISTS idx_chats_group_admin ON chats("groupAdminId");',
-        'CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages("createdAt");'
+        'CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages("createdAt");',
+        'CREATE INDEX IF NOT EXISTS idx_message_deliveries_recipient ON message_deliveries("recipientId");',
+        'CREATE INDEX IF NOT EXISTS idx_message_deliveries_message ON message_deliveries("messageId");'
     ],
     
     // Drop all tables (for reset)
     dropAllTables: [
         'DROP TABLE IF EXISTS chat_users CASCADE;',
+        'DROP TABLE IF EXISTS message_deliveries CASCADE;',
         'DROP TABLE IF EXISTS messages CASCADE;',
         'DROP TABLE IF EXISTS chats CASCADE;',
         'DROP TABLE IF EXISTS users CASCADE;'
@@ -78,7 +94,7 @@ const schemaQueries = {
         SELECT table_name 
         FROM information_schema.tables 
         WHERE table_schema = 'public' 
-        AND table_name IN ('users', 'chats', 'messages', 'chat_users');
+        AND table_name IN ('users', 'chats', 'messages', 'chat_users', 'message_deliveries');
     `,
     
     // Get table info

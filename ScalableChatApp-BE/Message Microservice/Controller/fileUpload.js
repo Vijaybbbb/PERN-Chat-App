@@ -1,31 +1,52 @@
 const { S3Client } = require('@aws-sdk/client-s3');
 const multer = require('multer');
 const multerS3 = require('multer-s3');
+const fs = require('fs');
+const path = require('path');
 
-// Configure AWS S3 Client
-const s3 = new S3Client({
-  region: process.env.AWS_REGION,
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  },
-});
+const hasS3Config = Boolean(
+  process.env.S3_BUCKET_NAME &&
+  process.env.AWS_REGION &&
+  process.env.AWS_ACCESS_KEY_ID &&
+  process.env.AWS_SECRET_ACCESS_KEY
+);
 
-// Configure multer for S3 upload
-const upload = multer({
-  storage: multerS3({
-    s3: s3,
-    bucket: process.env.S3_BUCKET_NAME,
-    metadata: function (req, file, cb) {
-      cb(null, { fieldName: file.fieldname });
+let storage;
+
+if (hasS3Config) {
+  const s3 = new S3Client({
+    region: process.env.AWS_REGION,
+    credentials: {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
     },
-    key: function (req, file, cb) {
-      // Get chatId from body, params, or query
+  });
+
+  storage = multerS3({
+    s3,
+    bucket: process.env.S3_BUCKET_NAME,
+    metadata: (req, file, cb) => cb(null, { fieldName: file.fieldname }),
+    key: (req, file, cb) => {
       const chatId = req.body.chatId || req.params.chatId || req.query.chatId || 'unknown';
-      const fileName = `chat-files/${chatId}/${Date.now()}-${file.originalname}`;
-      cb(null, fileName);
+      cb(null, `chat-files/${chatId}/${Date.now()}-${file.originalname}`);
     }
-  }),
+  });
+} else {
+  const localUploadDir = path.resolve(__dirname, '../uploads');
+  fs.mkdirSync(localUploadDir, { recursive: true });
+  console.warn('S3 is not configured; using local attachment storage.');
+
+  storage = multer.diskStorage({
+    destination: localUploadDir,
+    filename: (req, file, cb) => {
+      const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+      cb(null, `${Date.now()}-${safeName}`);
+    }
+  });
+}
+
+const upload = multer({
+  storage,
   limits: {
     fileSize: 10 * 1024 * 1024 // 10MB limit
   },
@@ -52,7 +73,7 @@ const uploadFile = async (req, res) => {
     
     const fileData = {
       fileName: req.file.originalname,
-      fileUrl: req.file.location,
+      fileUrl: req.file.location || `${process.env.MESSAGE_PUBLIC_URL || 'http://localhost:3004'}/uploads/${encodeURIComponent(req.file.filename)}`,
       fileType: req.file.mimetype,
       fileSize: req.file.size,
       uploadedBy: req.userId,

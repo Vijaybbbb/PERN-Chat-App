@@ -127,6 +127,7 @@ async function accessChat(userid) {
   return (
     <div>
        <Box
+   className="topbar"
    
    display="flex"
    justifyContent="space-between"
@@ -135,7 +136,6 @@ async function accessChat(userid) {
    color={isDarkMode ? 'var(--text-primary)' : 'black'}
    w="100%"
    p="5px 10px"
-   borderWidth="5px"
    borderColor={isDarkMode ? 'var(--border-color)' : 'gray.200'}
 
        >
@@ -156,7 +156,7 @@ async function accessChat(userid) {
                      </Button>
               </Tooltip>
 
-              <Text fontSize={'2xl'} fontFamily={'works sans'}>
+              <Text className="brand-title" fontSize={'2xl'} fontWeight="700">
                      Chat-Line
               </Text>
 

@@ -1,10 +1,12 @@
 const express = require('express');
 const http = require('http');
 const socketIO = require('socket.io');
+const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
 const path = require('path');
 const { connectRabbitMQ, consumeMessages, publishMessage } = require('../Common Microservice/rabbitmqClient');
 const redisClient = require('../Common Microservice/redisClient');
+const { getSecret, isTokenBlacklisted } = require('../Common Microservice/common_functions/token');
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
@@ -14,12 +16,33 @@ const PORT = process.env.SOCKET_PORT || process.env.PORT || 3005;
 
 // Track online users
 const onlineUsers = new Map();
+const roomId = (id) => String(id);
 
 const io = socketIO(server, {
     pingTimeout: 60000,
     cors: {
         origin: process.env.NODE_ENV === 'production' ? true : 'http://localhost:5173',
         credentials: true
+    }
+});
+
+// Socket.IO is also an authenticated API. The client sends the short-lived
+// access token in the handshake so signaling cannot be spoofed with another
+// user's id.
+io.use(async (socket, next) => {
+    try {
+        const token = socket.handshake.auth?.token;
+        if (!token) return next(new Error('Access token required'));
+
+        const decoded = jwt.verify(token, getSecret('JWT_ACCESS_SECRET'));
+        if (decoded.tokenType !== 'access' || await isTokenBlacklisted(token)) {
+            return next(new Error('Invalid or revoked access token'));
+        }
+
+        socket.authUserId = decoded.id;
+        next();
+    } catch (error) {
+        next(new Error('Socket authentication failed'));
     }
 });
 
@@ -35,11 +58,20 @@ const io = socketIO(server, {
             
             if (chat && chat.users) {
                 chat.users.forEach(userData => {
-                    if (userData.id != message.sender.id) {
-                        io.to(userData.id).emit('message recieved', message);
+                    if (roomId(userData.id) !== roomId(message.sender.id)) {
+                        io.to(roomId(userData.id)).emit('message recieved', message);
                     }
                 });
             }
+        }
+    });
+
+    // Message service persists delivery/read acknowledgements and publishes
+    // the aggregate status back to the sender through a separate queue.
+    consumeMessages('message_status_updates', (statusData) => {
+        if (statusData.type === 'message_status_updated') {
+            const status = statusData.data;
+            io.to(roomId(status.senderId)).emit('message status updated', status);
         }
     });
 })();
@@ -47,16 +79,17 @@ const io = socketIO(server, {
 io.on('connection', (socket) => {
     console.log('Connected to socket.io');
 
-    socket.on('setup', async (userData) => {
-        socket.join(userData);
-        socket.userId = userData;
+    socket.on('setup', async () => {
+        const userId = roomId(socket.authUserId);
+        socket.join(userId);
+        socket.userId = userId;
         
         // Mark user as online
-        onlineUsers.set(userData, socket.id);
-        await redisClient.setEx(`online:${userData}`, 300, 'true'); // 5 min expiry
+        onlineUsers.set(userId, socket.id);
+        await redisClient.setEx(`online:${userId}`, 300, 'true'); // 5 min expiry
         
         // Broadcast user online status
-        socket.broadcast.emit('user online', userData);
+        socket.broadcast.emit('user online', userId);
         socket.emit('connected');
     });
 
@@ -68,13 +101,54 @@ io.on('connection', (socket) => {
     
     socket.on('stop typing', (room) => socket.in(room).emit('stop typing'));
 
+    // The client acknowledges these events as soon as the message is received
+    // or the chat is opened. The acknowledgement is persisted by Message MS.
+    const publishStatus = (type, messageId) => {
+        if (!socket.userId || !messageId) return;
+
+        publishMessage('message_status', {
+            type,
+            messageId,
+            recipientId: socket.userId
+        });
+    };
+
+    socket.on('message delivered', ({ messageId } = {}) => {
+        publishStatus('message_delivered', messageId);
+    });
+
+    socket.on('message read', ({ messageId } = {}) => {
+        publishStatus('message_read', messageId);
+    });
+
+    socket.on('messages read', (messageIds = []) => {
+        messageIds.forEach((messageId) => publishStatus('message_read', messageId));
+    });
+
+    const relayCallEvent = (event, payload = {}) => {
+        const { to, ...callData } = payload;
+        if (!socket.userId || !to || roomId(to) === roomId(socket.userId)) return;
+
+        io.to(roomId(to)).emit(event, {
+            ...callData,
+            from: socket.userId
+        });
+    };
+
+    // WebRTC media stays peer-to-peer. This service only relays SDP/ICE data.
+    socket.on('call-user', (payload) => relayCallEvent('incoming-call', payload));
+    socket.on('call-accepted', (payload) => relayCallEvent('call-accepted', payload));
+    socket.on('ice-candidate', (payload) => relayCallEvent('ice-candidate', payload));
+    socket.on('call-rejected', (payload) => relayCallEvent('call-rejected', payload));
+    socket.on('call-ended', (payload) => relayCallEvent('call-ended', payload));
+
     socket.on('new message', async (newMessageRecived) => {
         const chat = newMessageRecived.chat;
         
         if (chat && chat.users) {
             chat.users.forEach(userData => {
-                if (userData.id != newMessageRecived.sender.id) {
-                    io.to(userData.id).emit('message recieved', newMessageRecived);
+                if (roomId(userData.id) !== roomId(newMessageRecived.sender.id)) {
+                    io.to(roomId(userData.id)).emit('message recieved', newMessageRecived);
                 }
             });
         }
