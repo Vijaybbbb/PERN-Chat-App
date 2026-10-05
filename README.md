@@ -19,6 +19,7 @@ Chat Line is a production-oriented real-time messaging platform built with the P
 - File, image, and voice-message support
 - Responsive dark-first interface with light-mode toggle
 - PostgreSQL persistence with Docker-based local development
+- Prometheus metrics, Winston JSON logging, Loki log aggregation, and Grafana dashboards
 
 ## Architecture
 
@@ -44,7 +45,7 @@ The browser never sends chat history directly to Bedrock. AI requests are authen
 
 **AI and media:** Amazon Bedrock Converse API, WebRTC, S3-compatible/local attachment storage
 
-**Operations:** Docker Compose, Nginx, JWT access/refresh tokens
+**Operations:** Docker Compose, Nginx, Winston, Prometheus, Loki, Grafana Alloy, Grafana
 
 ## Run locally
 
@@ -87,6 +88,36 @@ Useful local services:
 | RabbitMQ management | `http://localhost:15672` |
 | PostgreSQL | `localhost:5433` |
 | Redis | `localhost:6379` |
+| Grafana | `http://localhost:3000` |
+| Prometheus | `http://localhost:9090` |
+| Loki readiness | `http://localhost:3100/ready` |
+| Grafana Alloy | `http://localhost:12345` |
+
+## Monitoring and logs
+
+Every backend service emits structured JSON logs to standard output through Winston. Logs include a service name, event name, severity, request ID, route, response status, and duration. Passwords, tokens, cookies, authorization headers, and secret-like fields are redacted automatically.
+
+Prometheus scrapes application metrics from `/metrics` on each service and infrastructure metrics from PostgreSQL, Redis, RabbitMQ, cAdvisor, Loki, and Alloy. Grafana Alloy discovers Docker containers and sends their logs to Loki. Grafana is provisioned with both data sources and a **Chat App Overview** dashboard.
+
+Set a strong Grafana password in the root `.env` file before starting the stack:
+
+```env
+LOG_LEVEL=info
+GRAFANA_ADMIN_USER=admin
+GRAFANA_ADMIN_PASSWORD=replace_with_a_strong_password
+```
+
+Useful checks:
+
+```bash
+curl http://localhost:3001/health
+curl http://localhost:3001/metrics
+curl http://localhost:3100/ready
+curl http://localhost:9090/-/ready
+docker compose logs --tail=100 alloy loki prometheus grafana
+```
+
+See [monitoring/README.md](monitoring/README.md) for architecture, LogQL/PromQL examples, alert rules, and production guidance.
 
 ## Enable AI features
 

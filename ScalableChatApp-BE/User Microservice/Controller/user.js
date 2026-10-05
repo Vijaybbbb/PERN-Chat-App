@@ -2,6 +2,8 @@ const queries = require('../Model/queries');
 const { createError } = require('../../Common Microservice');
 const bcrypt = require('bcryptjs'); // Changed from bcrypt to bcryptjs
 const redisClient = require('../../Common Microservice/redisClient');
+const { createObservability } = require('../../Common Microservice/observability');
+const observability = createObservability(process.env.SERVICE_NAME);
 const {
     REFRESH_TOKEN_TTL_SECONDS,
     issueTokenPair,
@@ -31,29 +33,23 @@ const setAuthCookies = (res, { accessToken, refreshToken }) => {
 };
 
 const register = async (req, res, next) => {
-    console.log('Register endpoint hit:', req.body);
     try {
         const db = getDb();
-        console.log('Got db connection');
-        console.log('About to query database for existing user');
         const existingUserResult = await db.query(queries.findUserByEmail, [req.body.userData.email]);
-        console.log('Query completed, result:', existingUserResult.rows.length);
         
         if (existingUserResult.rows.length > 0) {
             return next(createError(401, 'User already Exist'));
         }
 
         const { name, email, password } = req.body.userData;
-        console.log('Hashing password...');
         let hashedPassword;
         try {
             hashedPassword = await bcrypt.hash(password, 5);
-            console.log('Password hashed successfully');
         } catch (hashError) {
-            console.error('Bcrypt hash error:', hashError);
+            req.log.error('Password hashing failed', { event: 'password_hash_failed', error: hashError });
+            observability.recordOperation('user_register', 'failure');
             return next(createError(500, 'Password hashing failed'));
         }
-        console.log('Creating user...');
         
         const newUserResult = await db.query(queries.createUser, [
             name,
@@ -61,8 +57,6 @@ const register = async (req, res, next) => {
             hashedPassword,
             req.body.images
         ]);
-        console.log('User created:', newUserResult.rows[0]);
-        
         const newUser = newUserResult.rows[0];
 
         const tokenPayload = { id: newUser.id, isAdmin: newUser.isAdmin };
@@ -70,10 +64,13 @@ const register = async (req, res, next) => {
         
         const { password: userPassword, isAdmin, ...otherDetails } = newUser;
         
+        observability.recordOperation('user_register');
+        req.log.info('User registered', { event: 'user_registered', userId: newUser.id });
         setAuthCookies(res, tokens).status(200).json({ ...otherDetails, accessToken: tokens.accessToken });
         
     } catch (error) {
-        console.log(error);
+        observability.recordOperation('user_register', 'failure');
+        req.log.error('User registration failed', { event: 'user_registration_failed', error });
         return next(createError(401, 'Failed'));
     }
 };
@@ -101,13 +98,16 @@ const login = async (req, res, next) => {
             const tokens = await issueTokenPair(tokenPayload);
             
             const { password, isAdmin, ...otherDetails } = existingUser;
-            
+            observability.recordOperation('user_login');
+            req.log.info('User logged in', { event: 'user_login_succeeded', userId: existingUser.id });
             setAuthCookies(res, tokens).status(200).json({ ...otherDetails, accessToken: tokens.accessToken });
         } else {
+            observability.recordOperation('user_login', 'failure');
             return next(createError(401, 'Invalid Credentials'));
         }
     } catch (error) {
-        console.log(error);
+        observability.recordOperation('user_login', 'failure');
+        req.log.error('User login failed', { event: 'user_login_failed', error });
         return next(createError(401, 'Failed'));
     }
 };
@@ -138,7 +138,7 @@ const allUsers = async (req, res, next) => {
         
         return res.status(200).json(users);
     } catch (error) {
-        console.log(error);
+        req.log.error('User search failed', { event: 'user_search_failed', error });
         return next(createError(401, 'Something went Wrong'));
     }
 };
@@ -154,10 +154,12 @@ const refreshToken = async (req, res, next) => {
         // Rotation atomically consumes the old refresh session and issues a
         // brand-new access/refresh pair.
         const tokens = await rotateRefreshToken(refresh_token);
+        observability.recordOperation('token_refresh');
         setAuthCookies(res, tokens).status(200).json({ accessToken: tokens.accessToken });
         
     } catch (error) {
-        console.log(error);
+        observability.recordOperation('token_refresh', 'failure');
+        req.log.warn('Refresh token rotation failed', { event: 'token_refresh_failed', error });
         return next(createError(401, 'Invalid refresh token'));
     }
 };
@@ -176,16 +178,21 @@ const logout = async (req, res, next) => {
                 await revokeRefreshToken(refresh_token);
             } catch (error) {
                 // The refresh token may already have expired or been rotated.
+                req.log.debug('Refresh token was already unavailable during logout', {
+                    event: 'refresh_token_revoke_skipped',
+                    error
+                });
             }
         }
-        
+        observability.recordOperation('user_logout');
         res.clearCookie('access_token')
            .clearCookie('refresh_token')
            .status(200)
            .json({ message: 'Logged out successfully' });
            
     } catch (error) {
-        console.log(error);
+        observability.recordOperation('user_logout', 'failure');
+        req.log.error('User logout failed', { event: 'user_logout_failed', error });
         return next(createError(500, 'Logout failed'));
     }
 };

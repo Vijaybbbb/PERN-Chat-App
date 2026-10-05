@@ -1,6 +1,8 @@
 const multer = require('multer');
 const fetch = require('node-fetch');
 const FormData = require('form-data');
+const { createObservability } = require('../../Common Microservice/observability');
+const observability = createObservability(process.env.SERVICE_NAME);
 
 // Configure multer for memory storage
 const upload = multer({
@@ -40,16 +42,15 @@ const uploadVoice = async (req, res) => {
     formData.append('resource_type', 'video');
     formData.append('folder', `chat-voice-messages/${chatId}`);
 
-    const response = await fetch('https://api.cloudinary.com/v1_1/dfozstttc/video/upload', {
-      method: 'POST',
-      body: formData
+    const result = await observability.measureDependency('cloudinary', 'voice_upload', async () => {
+      const response = await fetch('https://api.cloudinary.com/v1_1/dfozstttc/video/upload', {
+        method: 'POST',
+        body: formData
+      });
+      const uploadResult = await response.json();
+      if (!response.ok) throw new Error(uploadResult.error?.message || 'Upload failed');
+      return uploadResult;
     });
-
-    const result = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(result.error?.message || 'Upload failed');
-    }
 
     const voiceData = {
       fileName: `voice_message_${Date.now()}.webm`,
@@ -61,15 +62,18 @@ const uploadVoice = async (req, res) => {
       chatId: chatId
     };
     
+    observability.recordOperation('voice_upload');
     res.status(200).json({
       success: true,
       voice: voiceData
     });
   } catch (error) {
-    console.error('Voice upload error:', error);
+    observability.recordOperation('voice_upload', 'failure');
+    req.log.error('Voice upload failed', { event: 'voice_upload_failed', error });
     res.status(500).json({
       success: false,
-      message: error.message
+      message: 'Voice upload failed',
+      requestId: req.requestId
     });
   }
 };

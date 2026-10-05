@@ -2,13 +2,16 @@ const { Pool } = require('pg');
 const dotenv = require('dotenv');
 const path = require('path');
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+const { createObservability } = require('../../Common Microservice/observability');
+const observability = createObservability(process.env.SERVICE_NAME);
+const { logger } = observability;
 
 let pool;
 let isConnected = false;
 
 const connect = async () => {
     if (isConnected && pool) {
-        console.log("PostgreSQL Database already connected");
+        logger.debug('PostgreSQL pool already connected', { event: 'postgres_already_connected' });
         return;
     }
     
@@ -24,13 +27,16 @@ const connect = async () => {
             connectionTimeoutMillis: 2000,
         });
         
-        await pool.connect();
+        pool.on('error', (error) => {
+            observability.recordDependency({ dependency: 'postgres', operation: 'pool', error });
+        });
+
+        await observability.measureDependency('postgres', 'connect', () => pool.query('SELECT 1'));
         isConnected = true;
-        console.log("PostgreSQL Database connected");
+        logger.info('PostgreSQL pool connected', { event: 'postgres_connected' });
     } catch (error) {
-        console.log(error);
-        console.log('Connection Failed');
         isConnected = false;
+        throw error;
     }
 };
 
@@ -39,11 +45,13 @@ module.exports = {
     query: (text, params) => {
         if (!pool) {
             const error = new Error('Database pool not initialized. Call connect() first.');
-            console.error('DB QUERY ERROR:', error.message);
+            logger.error('Database query attempted before initialization', {
+                event: 'postgres_pool_not_initialized',
+                error
+            });
             throw error;
         }
-        console.log('Executing query:', text.substring(0, 50));
-        return pool.query(text, params);
+        return observability.measureDependency('postgres', 'query', () => pool.query(text, params));
     },
     get pool() {
         return pool;

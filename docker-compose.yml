@@ -7,6 +7,8 @@ services:
       - "3001:3001"
     environment:
       - NODE_ENV=production
+      - SERVICE_NAME=user-service
+      - LOG_LEVEL=${LOG_LEVEL:-info}
       - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
       - POSTGRES_HOST=postgres
@@ -17,7 +19,11 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
 
   chat-service:
     build:
@@ -27,6 +33,8 @@ services:
       - "3002:3002"
     environment:
       - NODE_ENV=production
+      - SERVICE_NAME=chat-service
+      - LOG_LEVEL=${LOG_LEVEL:-info}
       - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
       - POSTGRES_HOST=postgres
@@ -37,7 +45,11 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
 
   database-service:
     build:
@@ -47,6 +59,8 @@ services:
       - "3003:3003"
     environment:
       - NODE_ENV=production
+      - SERVICE_NAME=database-service
+      - LOG_LEVEL=${LOG_LEVEL:-info}
       - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
@@ -56,7 +70,9 @@ services:
       - DB_ADMIN_USERNAME=postgres
       - DB_ADMIN_PASSWORD=password
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
 
   message-service:
     build:
@@ -68,6 +84,8 @@ services:
       - ./ScalableChatApp-BE/.env
     environment:
       - NODE_ENV=production
+      - SERVICE_NAME=message-service
+      - LOG_LEVEL=${LOG_LEVEL:-info}
       - MESSAGE_PORT=3004
       - PORT=3004
       - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
@@ -83,8 +101,13 @@ services:
       - RABBITMQ_PORT=5672
       - RABBITMQ_URL=amqp://rabbitmq:5672
     depends_on:
-      - postgres
-      - rabbitmq
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
     volumes:
       - message_uploads:/app/uploads
 
@@ -96,13 +119,19 @@ services:
       - "3005:3005"
     environment:
       - NODE_ENV=production
+      - SERVICE_NAME=socket-service
+      - LOG_LEVEL=${LOG_LEVEL:-info}
       - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - RABBITMQ_HOST=rabbitmq
       - RABBITMQ_PORT=5672
     depends_on:
-      - rabbitmq
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
 
   frontend:
     build: ./ScalableChatApp-FE
@@ -124,18 +153,137 @@ services:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U postgres -d chatapp]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
     ports:
       - "5672:5672"
       - "15672:15672"
+      - "15692:15692"
+    volumes:
+      - ./monitoring/rabbitmq-enabled-plugins:/etc/rabbitmq/enabled_plugins:ro
+    healthcheck:
+      test: [CMD, rabbitmq-diagnostics, -q, ping]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.17.1
+    environment:
+      DATA_SOURCE_NAME: postgresql://postgres:password@postgres:5432/chatapp?sslmode=disable
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.69.0
+    environment:
+      REDIS_ADDR: redis://redis:6379
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.51.0
+    privileged: true
+    devices:
+      - /dev/kmsg:/dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk:/dev/disk:ro
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:3.7.0
+    command: -config.file=/etc/loki/config.yml
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./monitoring/loki-config.yml:/etc/loki/config.yml:ro
+      - loki_data:/loki
+    restart: unless-stopped
+
+  alloy:
+    image: grafana/alloy:v1.12.0
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    ports:
+      - "12345:12345"
+    volumes:
+      - ./monitoring/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy_data:/var/lib/alloy/data
+    depends_on:
+      - loki
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v3.14.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=7d
+      - --web.enable-lifecycle
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      - user-service
+      - chat-service
+      - database-service
+      - message-service
+      - socket-service
+      - postgres-exporter
+      - redis-exporter
+      - rabbitmq
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+      - loki
+    restart: unless-stopped
 
 volumes:
   postgres_data:
   message_uploads:
+  prometheus_data:
+  loki_data:
+  alloy_data:
+  grafana_data:

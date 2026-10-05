@@ -1,6 +1,8 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const { getSecret, isTokenBlacklisted } = require('../../Common Microservice/common_functions/token');
+const { createObservability } = require('../../Common Microservice/observability');
+const observability = createObservability(process.env.SERVICE_NAME);
 
 // Default admin credentials (change in production)
 const ADMIN_CREDENTIALS = {
@@ -19,22 +21,28 @@ const adminLogin = async (req, res) => {
                 { expiresIn: '24h' }
             );
             
+            observability.recordOperation('database_admin_login');
+            req.log.info('Database admin logged in', { event: 'database_admin_login_succeeded' });
             res.status(200).json({
                 success: true,
                 message: 'Admin login successful',
                 token
             });
         } else {
+            observability.recordOperation('database_admin_login', 'failure');
+            req.log.warn('Database admin login rejected', { event: 'database_admin_login_rejected' });
             res.status(401).json({
                 success: false,
                 message: 'Invalid admin credentials'
             });
         }
     } catch (error) {
+        observability.recordOperation('database_admin_login', 'failure');
+        req.log.error('Database admin login failed', { event: 'database_admin_login_failed', error });
         res.status(500).json({
             success: false,
             message: 'Login failed',
-            error: error.message
+            requestId: req.requestId
         });
     }
 };
@@ -66,6 +74,7 @@ const verifyAdmin = async (req, res, next) => {
         req.admin = decoded;
         next();
     } catch (error) {
+        req.log.warn('Database admin token rejected', { event: 'database_admin_token_rejected', error });
         res.status(401).json({
             success: false,
             message: 'Invalid token'

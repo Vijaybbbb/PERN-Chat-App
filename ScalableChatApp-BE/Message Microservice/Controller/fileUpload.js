@@ -3,6 +3,9 @@ const multer = require('multer');
 const multerS3 = require('multer-s3');
 const fs = require('fs');
 const path = require('path');
+const { createObservability } = require('../../Common Microservice/observability');
+const observability = createObservability(process.env.SERVICE_NAME);
+const { logger } = observability;
 
 const hasS3Config = Boolean(
   process.env.S3_BUCKET_NAME &&
@@ -34,7 +37,9 @@ if (hasS3Config) {
 } else {
   const localUploadDir = path.resolve(__dirname, '../uploads');
   fs.mkdirSync(localUploadDir, { recursive: true });
-  console.warn('S3 is not configured; using local attachment storage.');
+  logger.warn('S3 is not configured; using local attachment storage', {
+    event: 's3_storage_disabled'
+  });
 
   storage = multer.diskStorage({
     destination: localUploadDir,
@@ -80,14 +85,18 @@ const uploadFile = async (req, res) => {
       chatId: chatId
     };
     
+    observability.recordOperation('file_upload');
     res.status(200).json({
       success: true,
       file: fileData
     });
   } catch (error) {
+    observability.recordOperation('file_upload', 'failure');
+    req.log.error('File upload failed', { event: 'file_upload_failed', error });
     res.status(500).json({
       success: false,
-      message: error.message
+      message: 'File upload failed',
+      requestId: req.requestId
     });
   }
 };
