@@ -1,6 +1,9 @@
 const { BedrockRuntimeClient, ConverseCommand } = require('@aws-sdk/client-bedrock-runtime');
 const queries = require('../Model/queries');
 const redisClient = require('../../Common Microservice/redisClient');
+const { createObservability } = require('../../Common Microservice/observability');
+const observability = createObservability(process.env.SERVICE_NAME);
+const { logger } = observability;
 
 const getDb = () => require('../Model/dataBaseConnection');
 const MODEL_ID = process.env.BEDROCK_MODEL_ID || 'amazon.nova-micro-v1:0';
@@ -25,7 +28,7 @@ const cacheGet = async (key) => {
     try {
         return redisClient.isReady ? await redisClient.get(key) : null;
     } catch (error) {
-        console.warn('AI cache read skipped:', error.message);
+        logger.warn('AI cache read skipped', { event: 'ai_cache_read_failed', error });
         return null;
     }
 };
@@ -34,7 +37,7 @@ const cacheSet = async (key, value) => {
     try {
         if (redisClient.isReady) await redisClient.setEx(key, CACHE_TTL, JSON.stringify(value));
     } catch (error) {
-        console.warn('AI cache write skipped:', error.message);
+        logger.warn('AI cache write skipped', { event: 'ai_cache_write_failed', error });
     }
 };
 
@@ -52,12 +55,14 @@ const parseModelJson = (text, fallback) => {
 };
 
 const invokeClaude = async (systemPrompt, userPrompt, maxTokens, temperature = 0.2) => {
-    const response = await getBedrockClient().send(new ConverseCommand({
-        modelId: MODEL_ID,
-        system: [{ text: systemPrompt }],
-        messages: [{ role: 'user', content: [{ text: userPrompt }] }],
-        inferenceConfig: { maxTokens, temperature }
-    }));
+    const response = await observability.measureDependency('bedrock', 'converse', () => (
+        getBedrockClient().send(new ConverseCommand({
+            modelId: MODEL_ID,
+            system: [{ text: systemPrompt }],
+            messages: [{ role: 'user', content: [{ text: userPrompt }] }],
+            inferenceConfig: { maxTokens, temperature }
+        }))
+    ));
 
     return (response.output?.message?.content || [])
         .filter((part) => part.text)
@@ -136,9 +141,11 @@ ${context}`,
         };
 
         await cacheSet(cacheKey, result);
+        observability.recordOperation('ai_chat_summary');
         return res.json(result);
     } catch (error) {
-        console.error('Bedrock summary failed:', error);
+        observability.recordOperation('ai_chat_summary', 'failure');
+        req.log.error('Bedrock summary failed', { event: 'bedrock_summary_failed', modelId: MODEL_ID, error });
         return res.status(502).json({ success: false, message: 'Unable to generate the group summary right now' });
     }
 };
@@ -176,9 +183,15 @@ ${context}`,
         const result = { success: true, model: MODEL_ID, suggestions };
 
         await cacheSet(cacheKey, result);
+        observability.recordOperation('ai_smart_replies');
         return res.json(result);
     } catch (error) {
-        console.error('Bedrock smart replies failed:', error);
+        observability.recordOperation('ai_smart_replies', 'failure');
+        req.log.error('Bedrock smart replies failed', {
+            event: 'bedrock_smart_replies_failed',
+            modelId: MODEL_ID,
+            error
+        });
         return res.status(502).json({ success: false, message: 'Unable to generate smart replies right now' });
     }
 };

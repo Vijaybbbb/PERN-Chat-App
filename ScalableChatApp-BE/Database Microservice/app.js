@@ -2,22 +2,27 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const path = require('path');
-const db = require('./Model/dataBaseConnection');
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
+process.env.SERVICE_NAME = process.env.SERVICE_NAME || 'database-service';
+const { createObservability } = require('../Common Microservice/observability');
+const observability = createObservability(process.env.SERVICE_NAME);
+const { logger } = observability;
+const db = require('./Model/dataBaseConnection');
+observability.installProcessHandlers();
 
 const app = express();
-const PORT = process.env.DATABASE_PORT || 4005;
+const PORT = process.env.DATABASE_PORT || process.env.PORT || 3003;
 
 // Middleware
+app.use(observability.requestMiddleware);
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Connect to database
-db.connect();
-
 // Routes
+app.get('/health', observability.healthHandler);
+app.get('/metrics', observability.metricsHandler);
 app.use('/api/auth', require('./Router/auth'));
 app.use('/api/database', require('./Router/database'));
 
@@ -46,16 +51,20 @@ app.get('/', (req, res) => {
 });
 
 // Error handling
-app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).json({
-        success: false,
-        message: 'Internal server error',
-        error: err.message
-    });
-});
+app.use(observability.errorHandler);
 
-app.listen(PORT, () => {
-    console.log(`Database Microservice running on port ${PORT}`);
-    console.log(`Admin UI available at: http://localhost:${PORT}/admin`);
+const start = async () => {
+    await db.connect();
+    app.listen(PORT, () => {
+        logger.info('Database service started', {
+            event: 'service_started',
+            port: PORT,
+            adminPath: '/admin'
+        });
+    });
+};
+
+start().catch((error) => {
+    logger.error('Database service startup failed', { event: 'service_startup_failed', error });
+    process.exitCode = 1;
 });

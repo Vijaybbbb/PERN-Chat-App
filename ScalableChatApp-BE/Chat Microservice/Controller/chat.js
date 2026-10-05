@@ -1,5 +1,7 @@
 const queries = require('../Model/queries');
 const redisClient = require('../../Common Microservice/redisClient');
+const { createObservability } = require('../../Common Microservice/observability');
+const observability = createObservability(process.env.SERVICE_NAME);
 const CACHE_TTL = process.env.CACHE_TTL || 3600;
 
 // Lazy load db to avoid initialization issues
@@ -10,7 +12,7 @@ const accessChat = async (req, res, next) => {
         const db = getDb();
         const { userId } = req.params;
         if (!userId) {
-            console.log("Userid is not available in params");
+            req.log.warn('Chat access rejected because userId is missing', { event: 'chat_access_invalid' });
             return res.status(400).json('Failed');
         }
         
@@ -35,11 +37,12 @@ const accessChat = async (req, res, next) => {
             await redisClient.del(`chats:${req.userId}`);
             await redisClient.del(`chats:${userId}`);
             
+            observability.recordOperation('chat_create');
             res.status(200).json(fullChatResult.rows[0]);
         }
     } catch (error) {
-        console.log(error);
-        res.status(500).json('Internal Server Error');
+        observability.recordOperation('chat_access', 'failure');
+        next(error);
     }
 };
 
@@ -56,12 +59,10 @@ const fetchChat = async (req, res, next) => {
         
         // Fetch from DB
         const chatsResult = await db.query(queries.fetchUserChats, [req.userId]);
-        console.log(chatsResult.rows)
         
         // Get users for each chat
         const chatsWithUsers = await Promise.all(chatsResult.rows.map(async (chat) => {
             const usersResult = await db.query(queries.getChatUsers, [chat.id]);
-            //console.log(usersResult.rows)
             return {
                 ...chat,
                 users: usersResult.rows,
@@ -87,8 +88,8 @@ const fetchChat = async (req, res, next) => {
         
         res.status(200).json(chatsWithUsers.reverse());
     } catch (error) {
-        console.log(error);
-        res.status(500).json('Internal Server Error');
+        observability.recordOperation('chat_fetch', 'failure');
+        next(error);
     }
 };
 
@@ -121,10 +122,11 @@ const createGroup = async (req, res, next) => {
             await redisClient.del(`chats:${userId}`);
         }
         
+        observability.recordOperation('group_chat_create');
         return res.status(200).json(fullGroupChatResult.rows[0]);
     } catch (error) {
-        console.log(error);
-        res.status(500).json('Internal Server Error');
+        observability.recordOperation('group_chat_create', 'failure');
+        next(error);
     }
 };
 
@@ -140,11 +142,12 @@ const renameGroup = async (req, res, next) => {
         if (updatedChatResult.rows.length === 0) {
             res.status(404).json('Chat not found');
         } else {
+            observability.recordOperation('group_chat_rename');
             res.status(200).json(updatedChatResult.rows[0]);
         }
     } catch (error) {
-        console.log(error);
-        res.status(500).json({ message: error.message });
+        observability.recordOperation('group_chat_rename', 'failure');
+        next(error);
     }
 };
 
@@ -160,11 +163,12 @@ const addToGroup = async (req, res, next) => {
         if (updatedChatResult.rows.length === 0) {
             res.status(404).json('Chat not Found');
         } else {
+            observability.recordOperation('group_chat_add_user');
             res.status(200).json(updatedChatResult.rows[0]);
         }
     } catch (error) {
-        console.log(error);
-        res.status(500).json('Internal Server Error');
+        observability.recordOperation('group_chat_add_user', 'failure');
+        next(error);
     }
 };
 
@@ -180,11 +184,12 @@ const removeFromGroup = async (req, res, next) => {
         if (updatedChatResult.rows.length === 0) {
             res.status(404).json('Chat not Found');
         } else {
+            observability.recordOperation('group_chat_remove_user');
             res.status(200).json(updatedChatResult.rows[0]);
         }
     } catch (error) {
-        console.log(error);
-        res.status(500).json('Internal Server Error');
+        observability.recordOperation('group_chat_remove_user', 'failure');
+        next(error);
     }
 };
 

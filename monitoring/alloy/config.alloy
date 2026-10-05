@@ -1,0 +1,62 @@
+logging {
+  level  = "info"
+  format = "logfmt"
+}
+
+discovery.docker "chat_app" {
+  host             = "unix:///var/run/docker.sock"
+  refresh_interval = "5s"
+}
+
+discovery.relabel "chat_app_logs" {
+  targets = []
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "compose_service"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_log_stream"]
+    target_label  = "stream"
+  }
+}
+
+loki.source.docker "chat_app" {
+  host          = "unix:///var/run/docker.sock"
+  targets       = discovery.docker.chat_app.targets
+  labels        = { source = "docker" }
+  relabel_rules = discovery.relabel.chat_app_logs.rules
+  forward_to    = [loki.process.chat_app.receiver]
+}
+
+loki.process "chat_app" {
+  stage.json {
+    expressions = {
+      level               = "level",
+      application_service = "service",
+      event               = "event",
+    }
+  }
+
+  stage.labels {
+    values = {
+      level               = "",
+      application_service = "",
+    }
+  }
+
+  forward_to = [loki.write.local.receiver]
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

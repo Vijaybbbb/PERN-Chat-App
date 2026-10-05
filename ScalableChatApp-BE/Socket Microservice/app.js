@@ -4,15 +4,23 @@ const socketIO = require('socket.io');
 const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
 const path = require('path');
+
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+process.env.SERVICE_NAME = process.env.SERVICE_NAME || 'socket-service';
+const { createObservability } = require('../Common Microservice/observability');
+const observability = createObservability(process.env.SERVICE_NAME);
+const { logger } = observability;
 const { connectRabbitMQ, consumeMessages, publishMessage } = require('../Common Microservice/rabbitmqClient');
 const redisClient = require('../Common Microservice/redisClient');
 const { getSecret, isTokenBlacklisted } = require('../Common Microservice/common_functions/token');
 
-dotenv.config({ path: path.resolve(__dirname, '../.env') });
-
 const app = express();
 const server = http.createServer(app);
 const PORT = process.env.SOCKET_PORT || process.env.PORT || 3005;
+observability.installProcessHandlers();
+app.use(observability.requestMiddleware);
+app.get('/health', observability.healthHandler);
+app.get('/metrics', observability.metricsHandler);
 
 // Track online users
 const onlineUsers = new Map();
@@ -42,16 +50,23 @@ io.use(async (socket, next) => {
         socket.authUserId = decoded.id;
         next();
     } catch (error) {
+        observability.recordSocketEvent('authentication', 'failure');
+        logger.warn('Socket authentication failed', {
+            event: 'socket_authentication_failed',
+            socketId: socket.id,
+            error
+        });
         next(new Error('Socket authentication failed'));
     }
 });
 
 // Initialize RabbitMQ and consume messages
 (async () => {
-    await connectRabbitMQ();
+    try {
+        await connectRabbitMQ();
     
     // Consume messages from queue and emit to socket clients
-    consumeMessages('messages', (messageData) => {
+        await consumeMessages('messages', (messageData) => {
         if (messageData.type === 'new_message') {
             const message = messageData.data;
             const chat = message.chat;
@@ -64,37 +79,59 @@ io.use(async (socket, next) => {
                 });
             }
         }
-    });
+        });
 
     // Message service persists delivery/read acknowledgements and publishes
     // the aggregate status back to the sender through a separate queue.
-    consumeMessages('message_status_updates', (statusData) => {
-        if (statusData.type === 'message_status_updated') {
-            const status = statusData.data;
-            io.to(roomId(status.senderId)).emit('message status updated', status);
-        }
-    });
+        await consumeMessages('message_status_updates', (statusData) => {
+            if (statusData.type === 'message_status_updated') {
+                const status = statusData.data;
+                io.to(roomId(status.senderId)).emit('message status updated', status);
+            }
+        });
+    } catch (error) {
+        logger.error('Socket message consumers failed to initialize', {
+            event: 'socket_consumers_initialization_failed',
+            error
+        });
+    }
 })();
 
 io.on('connection', (socket) => {
-    console.log('Connected to socket.io');
+    observability.recordSocketEvent('connection');
+    logger.info('Socket client connected', {
+        event: 'socket_connected',
+        socketId: socket.id,
+        userId: socket.authUserId
+    });
 
     socket.on('setup', async () => {
-        const userId = roomId(socket.authUserId);
-        socket.join(userId);
-        socket.userId = userId;
-        
-        // Mark user as online
-        onlineUsers.set(userId, socket.id);
-        await redisClient.setEx(`online:${userId}`, 300, 'true'); // 5 min expiry
-        
-        // Broadcast user online status
-        socket.broadcast.emit('user online', userId);
-        socket.emit('connected');
+        try {
+            const userId = roomId(socket.authUserId);
+            socket.join(userId);
+            socket.userId = userId;
+
+            onlineUsers.set(userId, socket.id);
+            observability.setSocketConnections(onlineUsers.size);
+            await redisClient.setEx(`online:${userId}`, 300, 'true');
+
+            socket.broadcast.emit('user online', userId);
+            socket.emit('connected');
+            observability.recordSocketEvent('setup');
+        } catch (error) {
+            observability.recordSocketEvent('setup', 'failure');
+            logger.error('Socket setup failed', {
+                event: 'socket_setup_failed',
+                socketId: socket.id,
+                userId: socket.authUserId,
+                error
+            });
+        }
     });
 
     socket.on('join chat', (room) => {
         socket.join(room);
+        observability.recordSocketEvent('join_chat');
     });
 
     socket.on('typing', (room) => socket.in(room).emit('typing'));
@@ -110,6 +147,15 @@ io.on('connection', (socket) => {
             type,
             messageId,
             recipientId: socket.userId
+        }).catch((error) => {
+            observability.recordSocketEvent(type, 'failure');
+            logger.error('Failed to publish message status', {
+                event: 'message_status_publish_failed',
+                statusType: type,
+                messageId,
+                userId: socket.userId,
+                error
+            });
         });
     };
 
@@ -133,6 +179,7 @@ io.on('connection', (socket) => {
             ...callData,
             from: socket.userId
         });
+        observability.recordSocketEvent(event);
     };
 
     // WebRTC media stays peer-to-peer. This service only relays SDP/ICE data.
@@ -160,11 +207,27 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', async () => {
-        console.log('User disconnected');
-        if (socket.userId) {
-            onlineUsers.delete(socket.userId);
-            await redisClient.del(`online:${socket.userId}`);
-            socket.broadcast.emit('user offline', socket.userId);
+        logger.info('Socket client disconnected', {
+            event: 'socket_disconnected',
+            socketId: socket.id,
+            userId: socket.userId
+        });
+        observability.recordSocketEvent('disconnect');
+        try {
+            if (socket.userId) {
+                onlineUsers.delete(socket.userId);
+                observability.setSocketConnections(onlineUsers.size);
+                await redisClient.del(`online:${socket.userId}`);
+                socket.broadcast.emit('user offline', socket.userId);
+            }
+        } catch (error) {
+            observability.recordSocketEvent('disconnect_cleanup', 'failure');
+            logger.error('Socket disconnect cleanup failed', {
+                event: 'socket_disconnect_cleanup_failed',
+                socketId: socket.id,
+                userId: socket.userId,
+                error
+            });
         }
     });
 });
@@ -175,10 +238,17 @@ app.get('/online/:userId', async (req, res) => {
         const isOnline = await redisClient.get(`online:${req.params.userId}`);
         res.json({ online: !!isOnline });
     } catch (error) {
+        logger.error('Failed to check online status', {
+            event: 'online_status_check_failed',
+            userId: req.params.userId,
+            error
+        });
         res.status(500).json({ error: 'Failed to check online status' });
     }
 });
 
+app.use(observability.errorHandler);
+
 server.listen(PORT, () => {
-    console.log(`SOCKET SERVICE RUNNING : ${PORT}`);
+    logger.info('Socket service started', { event: 'service_started', port: PORT });
 });

@@ -2,13 +2,16 @@ const { Pool } = require('pg');
 const dotenv = require('dotenv');
 const path = require('path');
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+const { createObservability } = require('../observability');
+const observability = createObservability(process.env.SERVICE_NAME);
+const { logger } = observability;
 
 let isConnected = false;
 let pool;
 
 const connect = async () => {
     if (isConnected) {
-        console.log('Common Microservice: PostgreSQL already connected');
+        logger.debug('Shared PostgreSQL pool already connected', { event: 'postgres_already_connected' });
         return;
     }
 
@@ -24,18 +27,24 @@ const connect = async () => {
             connectionTimeoutMillis: 2000,
         });
         
-        await pool.connect();
+        pool.on('error', (error) => {
+            observability.recordDependency({ dependency: 'postgres', operation: 'pool', error });
+        });
+
+        await observability.measureDependency('postgres', 'connect', () => pool.query('SELECT 1'));
         isConnected = true;
-        console.log("Common Microservice: PostgreSQL Database connected");
+        logger.info('Shared PostgreSQL pool connected', { event: 'postgres_connected' });
     } catch (error) {
-        console.log(error);
-        console.log('Common Microservice: Connection Failed');
         isConnected = false;
+        throw error;
     }
 };
 
 module.exports = {
     connect,
-    query: (text, params) => pool.query(text, params),
+    query: (text, params) => {
+        if (!pool) return Promise.reject(new Error('Shared database pool is not initialized'));
+        return observability.measureDependency('postgres', 'query', () => pool.query(text, params));
+    },
     pool: () => pool
 };

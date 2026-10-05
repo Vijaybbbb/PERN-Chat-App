@@ -1,0 +1,55 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: [prometheus:9090]
+
+  - job_name: user-service
+    static_configs:
+      - targets: [user-service:3001]
+
+  - job_name: chat-service
+    static_configs:
+      - targets: [chat-service:3002]
+
+  - job_name: database-service
+    static_configs:
+      - targets: [database-service:3003]
+
+  - job_name: message-service
+    static_configs:
+      - targets: [message-service:3004]
+
+  - job_name: socket-service
+    static_configs:
+      - targets: [socket-service:3005]
+
+  - job_name: postgres
+    static_configs:
+      - targets: [postgres-exporter:9187]
+
+  - job_name: redis
+    static_configs:
+      - targets: [redis-exporter:9121]
+
+  - job_name: rabbitmq
+    static_configs:
+      - targets: [rabbitmq:15692]
+
+  - job_name: cadvisor
+    static_configs:
+      - targets: [cadvisor:8080]
+
+  - job_name: loki
+    static_configs:
+      - targets: [loki:3100]
+
+  - job_name: alloy
+    static_configs:
+      - targets: [alloy:12345]

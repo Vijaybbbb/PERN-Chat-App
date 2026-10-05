@@ -1,6 +1,9 @@
 const queries = require('../Model/queries');
 const redisClient = require('../../Common Microservice/redisClient');
 const { publishMessage } = require('../../Common Microservice/rabbitmqClient');
+const { createObservability } = require('../../Common Microservice/observability');
+const observability = createObservability(process.env.SERVICE_NAME);
+const { logger } = observability;
 const CACHE_TTL = process.env.CACHE_TTL || 3600;
 
 // Lazy load db to avoid initialization issues
@@ -29,6 +32,10 @@ const consumeStatusEvents = async () => {
         async (statusEvent) => {
             const { type, messageId, recipientId } = statusEvent;
             if (!messageId || !recipientId || !['message_delivered', 'message_read'].includes(type)) {
+                logger.warn('Ignored invalid message status event', {
+                    event: 'message_status_event_invalid',
+                    statusType: type
+                });
                 return;
             }
 
@@ -41,6 +48,7 @@ const consumeStatusEvents = async () => {
                 if (deliveryUpdate?.chatId) {
                     await redisClient.del(`messages:${deliveryUpdate.chatId}`);
                 }
+                observability.recordOperation(type);
             }
         }
     );
@@ -48,9 +56,13 @@ const consumeStatusEvents = async () => {
 
 const sendMessage = async (req, res, next) => {
     const { content, chatId, attachment, messageType } = req.body;
-    console.log(req.body);
     if ((!content && !attachment) || !chatId) {
-        console.log('Invalid data passed into request');
+        req.log.warn('Message send request is invalid', {
+            event: 'message_send_invalid',
+            hasContent: Boolean(content),
+            hasAttachment: Boolean(attachment),
+            hasChatId: Boolean(chatId)
+        });
         return res.status(400).json('Invalid data');
     }
     
@@ -90,11 +102,11 @@ const sendMessage = async (req, res, next) => {
         
         // Invalidate cache for this chat
         await redisClient.del(`messages:${chatId}`);
-        
+        observability.recordOperation('message_send');
         return res.status(200).json(populatedMessage);
     } catch (error) {
-        console.log(error);
-        res.status(500).json('Internal Server Error');
+        observability.recordOperation('message_send', 'failure');
+        next(error);
     }
 };
 
@@ -119,8 +131,8 @@ const allMessages = async (req, res, next) => {
         
         res.status(200).json(messages);
     } catch (error) {
-        console.log(error);
-        res.status(500).json('Internal Server Error');
+        observability.recordOperation('message_fetch', 'failure');
+        next(error);
     }
 };
 

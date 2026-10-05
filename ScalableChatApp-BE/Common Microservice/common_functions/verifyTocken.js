@@ -2,6 +2,8 @@ const jwt = require('jsonwebtoken');
 const { createError } = require('./error.js');
 const queries = require('./queries.js');
 const { getSecret, isTokenBlacklisted } = require('./token');
+const { createObservability } = require('../observability');
+const observability = createObservability(process.env.SERVICE_NAME);
 
 // Lazy load db - each microservice owns its PostgreSQL pool.
 const getDb = () => require('./databaseConnection.js');
@@ -38,9 +40,14 @@ const verifyToken = async (req, res, next) => {
         return next();
     } catch (error) {
         if (error.name === 'TokenExpiredError') {
+            req.log?.warn('Access token expired', { event: 'access_token_expired' });
             return next(createError(401, 'Access token expired'));
         }
-        console.log('Token verification error:', error.message);
+        observability.recordOperation('token_verification', 'failure');
+        req.log?.warn('Access token verification failed', {
+            event: 'access_token_verification_failed',
+            error
+        });
         return next(createError(401, 'Invalid access token'));
     }
 };

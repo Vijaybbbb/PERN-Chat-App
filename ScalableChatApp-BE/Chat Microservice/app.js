@@ -4,10 +4,15 @@ const app = express();
 const dotenv = require('dotenv');
 const cookieParser = require('cookie-parser');
 const bodyParser = require('body-parser');
+dotenv.config()
+process.env.SERVICE_NAME = process.env.SERVICE_NAME || 'chat-service';
+const { createObservability } = require('../Common Microservice/observability');
+const observability = createObservability(process.env.SERVICE_NAME);
+const { logger } = observability;
 const { connect } = require('./Model/dataBaseConnection');
 const { connect: connectCommonDb } = require('../Common Microservice/common_functions/databaseConnection');
 
-dotenv.config()
+observability.installProcessHandlers();
 const PORT = process.env.CHAT_PORT || process.env.PORT || 3002
 
 // Connect to database first
@@ -17,6 +22,7 @@ Promise.all([connect(), connectCommonDb()]).then(() => {
     //const messageRouter = require('./Router/message')
 
     //middlewares
+    app.use(observability.requestMiddleware)
     app.use(express.json())
     app.use(cookieParser())
     app.use(bodyParser.urlencoded({ extended: false }));
@@ -27,19 +33,9 @@ Promise.all([connect(), connectCommonDb()]).then(() => {
            credentials: true
     }))
 
+    app.get('/health', observability.healthHandler)
+    app.get('/metrics', observability.metricsHandler)
     app.use('/chat',chatRouter)
-
-    app.use((err,req,res,next)=>{
-           const errorStatus  = err.status || 500
-           const errorMessage  = err.message || 'Something Went Wrong'
-
-           return res.status(errorStatus).json({
-                  success:false,
-                  status:errorStatus,
-                  message:errorMessage,
-                  stack:err.stack
-           })
-    })
 
     app.post('/clearCookie', (req, res) => {
 
@@ -48,17 +44,20 @@ Promise.all([connect(), connectCommonDb()]).then(() => {
                   // Send a response
                   res.status(200).json('Cookie cleared');
            } catch (error) {
-                  console.log(error);
+                  req.log.error('Failed to clear cookie', { event: 'clear_cookie_failed', error });
+                  res.status(500).json({ success: false, message: 'Failed to clear cookie', requestId: req.requestId });
            }
     });
 
-    app.listen(PORT,()=>{console.log(`CHAT SERVICE RUNNING : ${PORT}`)})
+    app.use(observability.errorHandler)
+
+    app.listen(PORT,()=>{
+        logger.info('Chat service started', { event: 'service_started', port: PORT });
+    })
 }).catch(err => {
-    console.error('Database connection failed:', err);
+    logger.error('Chat service startup failed', { event: 'service_startup_failed', error: err });
+    process.exitCode = 1;
 });
-
-
-
 
 
 

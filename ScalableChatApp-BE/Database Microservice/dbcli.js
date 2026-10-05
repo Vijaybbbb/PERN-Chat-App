@@ -5,6 +5,10 @@ const dotenv = require('dotenv');
 const path = require('path');
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
+process.env.SERVICE_NAME = process.env.SERVICE_NAME || 'database-cli';
+const { createObservability } = require('../Common Microservice/observability');
+const observability = createObservability(process.env.SERVICE_NAME);
+const { logger } = observability;
 
 const pool = new Pool({
     host: process.env.POSTGRES_HOST,
@@ -15,66 +19,64 @@ const pool = new Pool({
 });
 
 const schemaQueries = require('./Model/schemaQueries');
+const query = (text, params) => observability.measureDependency(
+    'postgres',
+    'query',
+    () => pool.query(text, params)
+);
 
 const commands = {
     async create() {
-        console.log('Creating database tables...');
+        logger.info('Creating database tables', { event: 'database_tables_create_started' });
         
-        await pool.query(schemaQueries.createUsersTable);
-        console.log('✓ Users table created');
+        await query(schemaQueries.createUsersTable);
         
-        await pool.query(schemaQueries.createChatsTable);
-        console.log('✓ Chats table created');
+        await query(schemaQueries.createChatsTable);
         
-        await pool.query(schemaQueries.createMessagesTable);
-        console.log('✓ Messages table created');
+        await query(schemaQueries.createMessagesTable);
         
-        await pool.query(schemaQueries.createChatUsersTable);
-        console.log('✓ Chat_users table created');
+        await query(schemaQueries.createChatUsersTable);
 
-        await pool.query(schemaQueries.createMessageDeliveriesTable);
-        console.log('✓ Message_deliveries table created');
+        await query(schemaQueries.createMessageDeliveriesTable);
         
         for (const indexQuery of schemaQueries.createIndexes) {
-            await pool.query(indexQuery);
+            await query(indexQuery);
         }
-        console.log('✓ Indexes created');
         
-        await pool.query(schemaQueries.createUpdateTrigger);
-        console.log('✓ Update triggers created');
+        await query(schemaQueries.createUpdateTrigger);
         
-        console.log('Database setup completed successfully!');
+        logger.info('Database setup completed', { event: 'database_tables_created' });
     },
     
     async drop() {
-        console.log('Dropping all tables...');
+        logger.warn('Dropping all database tables', { event: 'database_tables_drop_started' });
         
         for (const dropQuery of schemaQueries.dropAllTables) {
-            await pool.query(dropQuery);
+            await query(dropQuery);
         }
         
-        console.log('All tables dropped successfully!');
+        logger.warn('All database tables dropped', { event: 'database_tables_dropped' });
     },
     
     async reset() {
         await commands.drop();
         await commands.create();
-        console.log('Database reset completed!');
+        logger.warn('Database reset completed', { event: 'database_reset_completed' });
     },
     
     async check() {
-        const result = await pool.query(schemaQueries.checkTablesExist);
+        const result = await query(schemaQueries.checkTablesExist);
         const existingTables = result.rows.map(row => row.table_name);
         
-        console.log('Existing tables:', existingTables);
+        logger.info('Database tables checked', { event: 'database_tables_checked', existingTables });
         
         const expectedTables = ['users', 'chats', 'messages', 'chat_users', 'message_deliveries'];
         const missingTables = expectedTables.filter(table => !existingTables.includes(table));
         
         if (missingTables.length > 0) {
-            console.log('Missing tables:', missingTables);
+            logger.warn('Required database tables are missing', { event: 'database_tables_missing', missingTables });
         } else {
-            console.log('✓ All required tables exist');
+            logger.info('All required database tables exist', { event: 'database_tables_healthy' });
         }
     }
 };
@@ -82,7 +84,7 @@ const commands = {
 const command = process.argv[2];
 
 if (!command || !commands[command]) {
-    console.log(`
+    process.stdout.write(`
 Usage: node dbcli.js <command>
 
 Commands:
@@ -101,10 +103,10 @@ Examples:
 
 commands[command]()
     .then(() => {
-        console.log('Command completed successfully');
+        logger.info('Database command completed', { event: 'database_command_completed', command });
         process.exit(0);
     })
     .catch(error => {
-        console.error('Error:', error.message);
+        logger.error('Database command failed', { event: 'database_command_failed', command, error });
         process.exit(1);
     });

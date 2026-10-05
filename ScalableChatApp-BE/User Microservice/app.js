@@ -1,20 +1,14 @@
 require('dotenv').config({ path: '../.env' });
+process.env.SERVICE_NAME = process.env.SERVICE_NAME || 'user-service';
 const express = require('express')
 const cors = require('cors')
 const app = express()
 const cookieParser = require('cookie-parser')
 const bodyParser = require('body-parser');
-
-// Global error handlers
-process.on('uncaughtException', (error) => {
-    console.error('UNCAUGHT EXCEPTION:', error);
-    process.exit(1);
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-    console.error('UNHANDLED REJECTION at:', promise, 'reason:', reason);
-    process.exit(1);
-});
+const { createObservability } = require('../Common Microservice/observability');
+const observability = createObservability(process.env.SERVICE_NAME);
+const { logger } = observability;
+observability.installProcessHandlers();
 
 // const { buildUserScema } = require('./Model/userModel')
 
@@ -26,13 +20,7 @@ const { connect: connectCommonDb } = require('../Common Microservice/common_func
 Promise.all([connect(), connectCommonDb()]).then(() => {
     const userRouter = require('./Router/user')
     //middlewares
-
-    // Log all incoming requests
-    app.use((req, res, next) => {
-        console.log(`Incoming request: ${req.method} ${req.url}`);
-        next();
-    });
-
+    app.use(observability.requestMiddleware);
     app.use(express.json())
     app.use(cookieParser())
     app.use(bodyParser.urlencoded({ extended: false }));
@@ -43,27 +31,16 @@ Promise.all([connect(), connectCommonDb()]).then(() => {
         credentials: true
     }));
 
+    app.get('/health', observability.healthHandler);
+    app.get('/metrics', observability.metricsHandler);
     app.use('/user', userRouter);
 
-    // Simple test endpoint
-    app.get('/health', (req, res) => {
-        res.json({ status: 'ok', timestamp: new Date().toISOString() });
-    });
+    app.use(observability.errorHandler);
 
-    app.use((err, req, res, next) => {
-        const errorStatus = err.status || 500
-        const errorMessage = err.message || 'Something Went Wrong'
-        return res.status(errorStatus).json({
-            success: false,
-            status: errorStatus,
-            message: errorMessage,
-            stack: err.stack
-        })
+    app.listen(PORT, () => {
+        logger.info('User service started', { event: 'service_started', port: PORT });
     });
-
-app.listen(PORT, () => {
-                console.log(`Server running on port ${PORT}`);
-            });
 }).catch(err => {
-    console.error('Database connection failed:', err);
+    logger.error('User service startup failed', { event: 'service_startup_failed', error: err });
+    process.exitCode = 1;
 });
