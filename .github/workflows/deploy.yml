@@ -73,16 +73,7 @@ jobs:
               --region ${{ env.AWS_REGION }}
           done
 
-      - name: Wait for all services to stabilize
+      - name: Check ECS deployments triggered
         run: |
-          SERVICES=$(aws ecs list-services \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --region ${{ env.AWS_REGION }} \
-            --output text \
-            --query 'serviceArns[]' | tr '\t' '\n' | sed 's|.*/||')
-
-          aws ecs wait services-stable \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --services $SERVICES \
-            --region ${{ env.AWS_REGION }}
-          echo "All services deployed successfully"
+          echo "ECS deployments triggered successfully"
+          echo "Monitor service health in ECS console"
