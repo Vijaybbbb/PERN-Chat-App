@@ -55,7 +55,16 @@ jobs:
 
       - name: Force new ECS deployments
         run: |
-          for svc in user-service chat-service database-service message-service socket-service frontend; do
+          # Fetch actual service names from cluster dynamically
+          SERVICES=$(aws ecs list-services \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --region ${{ env.AWS_REGION }} \
+            --output text \
+            --query 'serviceArns[]' | tr '\t' '\n' | sed 's|.*/||')
+
+          echo "Found services: $SERVICES"
+
+          for svc in $SERVICES; do
             echo "Deploying $svc..."
             aws ecs update-service \
               --cluster ${{ env.ECS_CLUSTER }} \
@@ -66,8 +75,14 @@ jobs:
 
       - name: Wait for all services to stabilize
         run: |
+          SERVICES=$(aws ecs list-services \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --region ${{ env.AWS_REGION }} \
+            --output text \
+            --query 'serviceArns[]' | tr '\t' '\n' | sed 's|.*/||')
+
           aws ecs wait services-stable \
             --cluster ${{ env.ECS_CLUSTER }} \
-            --services user-service chat-service database-service message-service socket-service frontend \
+            --services $SERVICES \
             --region ${{ env.AWS_REGION }}
           echo "All services deployed successfully"
